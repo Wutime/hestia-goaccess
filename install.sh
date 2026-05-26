@@ -68,6 +68,23 @@ confirm() {
 	esac
 }
 
+confirm_default_yes() {
+	local prompt="$1"
+	local answer
+
+	if [[ "${ASSUME_YES}" == "yes" ]]; then
+		return 0
+	fi
+
+	[[ -t 0 ]] || die "${prompt} Re-run with --yes for non-interactive installs."
+	printf '%s [Y/n] ' "${prompt}"
+	read -r answer
+	case "${answer}" in
+		""|y|Y|yes|YES) return 0 ;;
+		*) die "installation cancelled" ;;
+	esac
+}
+
 parse_args() {
 	while [[ "$#" -gt 0 ]]; do
 		case "$1" in
@@ -176,7 +193,7 @@ ensure_goaccess() {
 			die "goaccess is not installed; minimum required version is ${GOACCESS_MIN_VERSION}"
 		fi
 		info "goaccess is not installed."
-		confirm "Install GoAccess ${GOACCESS_MIN_VERSION}+ from the official GoAccess Debian/Ubuntu repository?"
+		confirm_default_yes "Install GoAccess ${GOACCESS_MIN_VERSION}+ from the official GoAccess Debian/Ubuntu repository?"
 		"${repo_root}/scripts/install-goaccess-debian.sh"
 		return
 	fi
@@ -192,7 +209,7 @@ ensure_goaccess() {
 		die "goaccess ${version} is too old; minimum required version is ${GOACCESS_MIN_VERSION}. Re-run with --upgrade-goaccess to let this installer upgrade it."
 	fi
 
-	confirm "Upgrade GoAccess ${version} to ${GOACCESS_MIN_VERSION}+ from the official GoAccess Debian/Ubuntu repository?"
+	confirm_default_yes "Upgrade GoAccess ${version} to ${GOACCESS_MIN_VERSION}+ from the official GoAccess Debian/Ubuntu repository?"
 	"${repo_root}/scripts/install-goaccess-debian.sh"
 }
 
