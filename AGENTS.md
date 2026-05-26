@@ -335,7 +335,7 @@ Current realtime prototype behavior:
 - sets `--ws-url` with an explicit public port such as `wss://DOMAIN:443/vstats/ws/`; GoAccess' browser client may ignore custom WebSocket URLs without a port and fall back to the internal listener port
 - if Hestia/Nginx config has a concrete redirect from the base domain to another host such as `www.DOMAIN`, use that host in the generated WebSocket URL
 - proxies `/vstats/ws/` to the local GoAccess listener
-- writes `/home/USER/web/DOMAIN/stats/auth.conf_hestia_goaccess_accesslog_off` with `access_log off;` so `/vstats/` traffic does not enter the domain log
+- writes `/home/USER/web/DOMAIN/stats/auth.conf_hestia_goaccess_accesslog_off` with `access_log off;` by default so `/vstats/` traffic does not enter the domain log; admins can set `GOACCESS_DISABLE_STATS_ACCESS_LOG=no` to opt out
 - parses the selected Hestia log directly by default; filters ignored paths before GoAccess parses logs only when admins configure `--ignore-paths` or `HESTIA_GOACCESS_IGNORE_PATHS`
 - supports comma or whitespace separated ignore paths through `--ignore-paths` or `HESTIA_GOACCESS_IGNORE_PATHS`
 - uses bounded systemd stop behavior so re-enable and uninstall do not hang on stale realtime processes

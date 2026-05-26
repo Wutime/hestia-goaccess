@@ -34,6 +34,7 @@ GOACCESS_FILTER_LOG="${HESTIA_GOACCESS_FILTER_LOG:-${GOACCESS_FILTER_LOG:-${DEFA
 GOACCESS_REALTIME_RUNNER="${HESTIA_GOACCESS_REALTIME_RUNNER:-${GOACCESS_REALTIME_RUNNER:-${DEFAULT_GOACCESS_REALTIME_RUNNER}}}"
 GOACCESS_LOG_FORMAT="${HESTIA_GOACCESS_LOG_FORMAT:-${GOACCESS_LOG_FORMAT:-COMBINED}}"
 GOACCESS_IGNORE_PATHS="${HESTIA_GOACCESS_IGNORE_PATHS:-${GOACCESS_IGNORE_PATHS:-}}"
+GOACCESS_DISABLE_STATS_ACCESS_LOG="${HESTIA_GOACCESS_DISABLE_STATS_ACCESS_LOG:-${GOACCESS_DISABLE_STATS_ACCESS_LOG:-yes}}"
 GOACCESS_HTML_PREFS="${HESTIA_GOACCESS_HTML_PREFS:-${GOACCESS_HTML_PREFS:-{\"theme\":\"darkGray\"}}"
 GOACCESS_DB_ROOT="${HESTIA_GOACCESS_DB_ROOT:-${GOACCESS_DB_ROOT:-/var/lib/hestia-goaccess}}"
 GOACCESS_KEEP_LAST="${HESTIA_GOACCESS_KEEP_LAST:-${GOACCESS_KEEP_LAST:-90}}"
@@ -340,6 +341,26 @@ remove_stats_accesslog_off() {
 	rm -f "${file}"
 }
 
+config_enabled() {
+	local value="$1"
+
+	case "${value,,}" in
+		1|yes|true|on) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+sync_stats_accesslog_setting() {
+	local user="$1"
+	local domain="$2"
+
+	if config_enabled "${GOACCESS_DISABLE_STATS_ACCESS_LOG}"; then
+		write_stats_accesslog_off "${user}" "${domain}"
+	else
+		remove_stats_accesslog_off "${user}" "${domain}"
+	fi
+}
+
 validate_nginx_realtime_include_loaded() {
 	local user="$1"
 	local domain="$2"
@@ -519,7 +540,7 @@ enable_static() {
 	[[ -f "${log_path}" ]] || die "access log does not exist: ${log_path}"
 	[[ -r "${log_path}" ]] || die "access log is not readable: ${log_path}"
 	install -d -m 0755 -o "${user}" -g "${user}" "${stats_path}"
-	write_stats_accesslog_off "${user}" "${domain}"
+	sync_stats_accesslog_setting "${user}" "${domain}"
 	install -d -m 0750 -o "${user}" -g "${user}" "${db_path}"
 	persist_args=(--persist --db-path="${db_path}" --keep-last="${GOACCESS_KEEP_LAST}")
 	if goaccess_db_has_data "${db_path}"; then
@@ -832,7 +853,7 @@ enable_realtime() {
 	check_realtime_log_access "${user}" "${log_path}"
 
 	stop_realtime_if_present "${user}" "${domain}"
-	write_stats_accesslog_off "${user}" "${domain}"
+	sync_stats_accesslog_setting "${user}" "${domain}"
 	write_nginx_realtime_include "${user}" "${domain}" "${port}"
 	write_realtime_service "${user}" "${domain}" "${log_path}" "${report_path}" "${port}" "${ws_url}" "${unit}" "${db_path}"
 	systemctl daemon-reload

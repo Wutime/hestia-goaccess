@@ -247,7 +247,7 @@ Realtime mode:
 - proxies the WebSocket through the same vhost
 - writes the public WebSocket URL with an explicit port, for example `wss://DOMAIN:443/vstats/ws/`, so GoAccess' browser client uses the proxied route
 - honors concrete Hestia/Nginx redirects such as `DOMAIN` to `www.DOMAIN` when choosing the public WebSocket host
-- writes a small `stats/auth.conf_hestia_goaccess_accesslog_off` include so Hestia's `/vstats/` location and the realtime WebSocket do not write dashboard traffic into the domain access log
+- writes a small `stats/auth.conf_hestia_goaccess_accesslog_off` include by default so Hestia's `/vstats/` location and the realtime WebSocket do not write dashboard traffic into the domain access log
 - preselects GoAccess' shipped `darkGray` HTML theme by default
 - uses a bounded systemd stop timeout so re-enable and uninstall do not hang on stale realtime processes
 - records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`
@@ -315,6 +315,7 @@ Per-domain CLI/config overrides cover the important controls today. A future Hes
 Common adjustments administrators may consider:
 
 - `GOACCESS_IGNORE_PATHS`: add private app paths that should not appear in reports, such as `/admin` or `/checkout`.
+- `GOACCESS_DISABLE_STATS_ACCESS_LOG`: keep the default `yes` so `/vstats/` is not counted, or set `no` if you intentionally want stats dashboard traffic in the domain log.
 - `GOACCESS_HTML_PREFS`: change or clear the default `darkGray` HTML theme.
 - `GOACCESS_PORT_RANGE`: move realtime listeners to a different local-only port range if `64000-64999` conflicts with local policy.
 - `GOACCESS_LOG_FORMAT`: change only if the server intentionally customized Hestia's access log format.

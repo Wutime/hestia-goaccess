@@ -215,6 +215,9 @@ ensure_goaccess() {
 
 install_files() {
 	local share_dir="${PREFIX}/share/hestia-goaccess"
+	local defaults_target="/etc/hestia-goaccess/defaults.conf"
+	local line
+	local key
 
 	install -d -m 0755 "${PREFIX}/bin"
 	install -d -m 0755 /etc/hestia-goaccess/domains
@@ -223,7 +226,19 @@ install_files() {
 
 	install -m 0755 "${repo_root}/bin/hestia-goaccess" "${PREFIX}/bin/hestia-goaccess"
 	install -m 0755 "${repo_root}/uninstall.sh" "${share_dir}/uninstall.sh"
-	install -m 0644 "${repo_root}/conf/defaults.conf" /etc/hestia-goaccess/defaults.conf
+	if [[ ! -f "${defaults_target}" ]]; then
+		install -m 0644 "${repo_root}/conf/defaults.conf" "${defaults_target}"
+	else
+		while IFS= read -r line; do
+			[[ "${line}" == *=* ]] || continue
+			key="${line%%=*}"
+			[[ "${key}" =~ ^[A-Z0-9_]+$ ]] || continue
+			if ! grep -q "^${key}=" "${defaults_target}"; then
+				printf '\n%s\n' "${line}" >> "${defaults_target}"
+				info "configured missing default: ${key}"
+			fi
+		done < "${repo_root}/conf/defaults.conf"
+	fi
 	install -m 0644 "${repo_root}/conf/defaults.conf" "${share_dir}/conf/defaults.conf"
 	install -m 0755 "${repo_root}/scripts/check-goaccess-version.sh" "${share_dir}/scripts/check-goaccess-version.sh"
 	install -m 0755 "${repo_root}/scripts/hestia-goaccess-filter-log" "${share_dir}/scripts/hestia-goaccess-filter-log"
