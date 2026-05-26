@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+	cat <<'USAGE'
+hestia-goaccess
+
+Planned commands:
+  install
+  enable USER DOMAIN --mode static|realtime
+  disable USER DOMAIN
+  status
+  doctor
+  repair
+  migrate-awstats --all --mode static
+  uninstall
+
+This CLI is a placeholder while the project skeleton and test harness are built.
+USAGE
+}
+
+case "${1:-}" in
+	""|-h|--help|help)
+		usage
+		;;
+	*)
+		echo "hestia-goaccess: command is not implemented yet: $1" >&2
+		exit 1
+		;;
+esac
