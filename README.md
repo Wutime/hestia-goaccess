@@ -356,6 +356,8 @@ The visible dropdown values are `goaccess-static` and `goaccess-realtime` rather
 
 Docker support is for development and evaluation, not production deployment. Hestia is a full server control panel and its installer expects a fresh server with root privileges, service management, web server ports, cron, and system paths.
 
+The main compatibility target is a basic Hestia install using Hestia's native templates, especially `default.tpl` / `default.stpl` and the Hestia-shipped Nginx or Nginx PHP-FPM template families. Custom templates are supported only when they preserve Hestia's standard per-domain include points, including `nginx.conf_*` and `nginx.ssl.conf_*` for Nginx-backed realtime mode.
+
 The Docker setup is a test harness that can validate:
 
 - installer idempotency
@@ -396,7 +398,7 @@ The Hestia profile installs Hestia at runtime inside the container filesystem. R
 
 The Hestia Docker installer installs GoAccess from the official GoAccess Debian repository by default for local static report testing. Set `HESTIA_INSTALL_GOACCESS=no` when testing missing-dependency behavior.
 
-The default development target should mirror the maintainer's production Hestia server where possible. Use `scripts/collect-hestia-inventory.sh` for read-only inventory before changing production systems.
+Production installs with custom templates are supplemental validation targets, not the baseline. Use `scripts/collect-hestia-inventory.sh` for read-only inventory before changing production systems.
 
 ## GoAccess Baseline
 

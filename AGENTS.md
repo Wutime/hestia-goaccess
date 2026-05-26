@@ -94,6 +94,14 @@ Hestia already has a web statistics abstraction:
 
 Current Hestia behavior is AWStats-oriented. The add-on should integrate with Hestia's stats model where practical, but must remain upgrade-aware and reversible.
 
+Primary compatibility target:
+- fresh/default Hestia installs first
+- native Hestia `default.tpl` / `default.stpl` first
+- other Hestia-shipped template pairs next
+- custom templates only when they preserve native Hestia include behavior
+
+Do not let the maintainer's production server custom templates become the public compatibility baseline. Treat production-custom behavior as supplemental validation only.
+
 Confirmed source behavior from Hestia `main` / 1.9.x:
 - `v-list-web-stats` derives the selector from `none` plus `STATS_SYSTEM`.
 - `v-add-web-domain-stats` and `v-change-web-domain-stats` validate the requested type against `STATS_SYSTEM` and render `$WEBTPL/$type/$type.tpl`.
@@ -337,13 +345,14 @@ Current realtime prototype behavior:
 
 GoAccess also provides an SSH terminal dashboard. This is separate from the managed `/vstats/` HTML report; enabling `goaccess-realtime` should not attach a terminal UI automatically. The CLI supports `hestia-goaccess terminal USER DOMAIN`, admin shortcut `hestia-goaccess USER DOMAIN`, and current-user shortcut `hestia-goaccess DOMAIN`. The single-domain shortcut resolves the Hestia user from the current shell login and works only if that SSH account can read the domain log.
 
-Primary production target profile:
+Supplemental production validation profile:
 - Ubuntu 22.04.5 LTS
 - Nginx public frontend with Apache backend active
 - Hestia panel on `8083`
 - Hestia stats currently lists `none` and `awstats`
 - GoAccess not installed initially
 - Linux ephemeral port range observed as `32768-60999`, so default GoAccess realtime range `64000-64999` is suitable after listener checks
+- custom templates may be present; do not assume those customizations exist on customer servers
 - do not commit hostnames, public IPs, private users, or private domains from inventory output
 
 ## Public Project Expectations

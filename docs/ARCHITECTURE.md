@@ -187,7 +187,9 @@ Hestia supports multiple web layouts:
 - Nginx with PHP-FPM directly
 - Apache variants
 
-The first implementation should prefer the Nginx paths because Hestia's templates already include per-domain Nginx include files and GoAccess realtime requires WebSocket proxying.
+The primary compatibility target is a stock Hestia install using Hestia's native web templates, especially `default.tpl` / `default.stpl` and the native Nginx and Nginx PHP-FPM template families. Custom production templates are useful for finding edge cases, but they must not define the baseline behavior for the public add-on.
+
+The first implementation should prefer the Nginx paths because Hestia's native templates already include per-domain Nginx include files and GoAccess realtime requires WebSocket proxying.
 
 For Nginx-only domains, Hestia's Nginx PHP-FPM templates already define `/vstats/` as an alias to the stats directory and include `stats/auth.conf*`.
 
@@ -198,6 +200,12 @@ Apache-only realtime support should be treated as a later compatibility target u
 ## Template Strategy
 
 Avoid editing Hestia's default `.tpl` and `.stpl` files in place.
+
+Test and support order:
+
+1. Fresh Hestia installs with native `default.tpl` / `default.stpl`.
+2. Other Hestia-shipped template pairs that preserve native include points.
+3. Custom templates only when they keep Hestia's standard per-domain include behavior, especially `nginx.conf_*` and `nginx.ssl.conf_*` for Nginx-backed domains.
 
 Preferred order:
 

@@ -56,7 +56,8 @@ Shortcuts:
   hestia-goaccess USER DOMAIN
   hestia-goaccess DOMAIN
 
-Realtime mode is experimental and currently CLI-managed.
+Use Hestia's Web Statistics selector or v-change-web-domain-stats for normal
+static/realtime enablement. The enable command is kept for direct admin use.
 USAGE
 }
 
@@ -237,6 +238,38 @@ nginx_include_files() {
 
 	printf '/home/%s/conf/web/%s/nginx.conf_hestia_goaccess_realtime\n' "${user}" "${domain}"
 	printf '/home/%s/conf/web/%s/nginx.ssl.conf_hestia_goaccess_realtime\n' "${user}" "${domain}"
+}
+
+expected_nginx_include_file() {
+	local user="$1"
+	local domain="$2"
+	local line
+	local ssl
+
+	line="$(domain_line "${user}" "${domain}")"
+	ssl="$(domain_field "${line}" "SSL")"
+	if [[ "${ssl}" == "yes" ]]; then
+		printf '/home/%s/conf/web/%s/nginx.ssl.conf_hestia_goaccess_realtime\n' "${user}" "${domain}"
+	else
+		printf '/home/%s/conf/web/%s/nginx.conf_hestia_goaccess_realtime\n' "${user}" "${domain}"
+	fi
+}
+
+nginx_loads_include_file() {
+	local include_file="$1"
+
+	nginx -T 2>/dev/null | grep -Fq "# configuration file ${include_file}:"
+}
+
+validate_nginx_realtime_include_loaded() {
+	local user="$1"
+	local domain="$2"
+	local include_file
+
+	include_file="$(expected_nginx_include_file "${user}" "${domain}")"
+	if ! nginx_loads_include_file "${include_file}"; then
+		die "Nginx did not load ${include_file}. Use native Hestia Nginx templates with nginx.conf_* / nginx.ssl.conf_* include points, or add the standard include point to the active domain template."
+	fi
 }
 
 write_state() {
@@ -502,6 +535,7 @@ NGINX
 	done < <(nginx_include_files "${user}" "${domain}")
 
 	nginx -t >/dev/null
+	validate_nginx_realtime_include_loaded "${user}" "${domain}"
 	systemctl reload nginx
 }
 
