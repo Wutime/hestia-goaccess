@@ -39,7 +39,7 @@ fi
 "${repo_root}/scripts/check-goaccess-version.sh"
 
 goaccess "${log_file}" \
-	--log-format=COMBINED \
+	--log-format="${GOACCESS_LOG_FORMAT:-COMBINED}" \
 	--anonymize-ip \
 	--no-query-string \
 	--output="${report}" \

@@ -151,6 +151,14 @@ GOACCESS_HTML_PREFS='{"theme":"darkGray"}'
 
 Admins can override that value in `/etc/hestia-goaccess/defaults.conf`; setting it to an empty value lets GoAccess use its upstream HTML theme behavior.
 
+GoAccess reads Hestia's existing per-domain access log without changing Hestia's web-server logging configuration. The default parser setting is:
+
+```bash
+GOACCESS_LOG_FORMAT=COMBINED
+```
+
+That matches Hestia's default Apache and Nginx `combined` domain logs and keeps AWStats rollback safe. `hestia-goaccess doctor USER DOMAIN` validates that the selected access log parses with the configured GoAccess format before enabling reports. If an administrator intentionally customizes Hestia log formats, they can override `GOACCESS_LOG_FORMAT` in `/etc/hestia-goaccess/defaults.conf`.
+
 ## Hestia Dropdown Integration
 
 `goaccess-static` and `goaccess-realtime` appear in Hestia's Web Statistics dropdown only after the optional dropdown integration is installed:

@@ -71,7 +71,7 @@ Static mode is also the initial migration target for existing AWStats domains. A
 
 Current prototype behavior:
 
-- `hestia-goaccess doctor [USER DOMAIN]` checks Hestia `1.9.4+`, GoAccess `1.10.2+`, domain existence, stats directory, and readable access log.
+- `hestia-goaccess doctor [USER DOMAIN]` checks Hestia `1.9.4+`, GoAccess `1.10.2+`, domain existence, stats directory, readable access log, and GoAccess log-format compatibility.
 - `hestia-goaccess enable USER DOMAIN --mode static` reads `/var/log/apache2/domains/DOMAIN.log` when present, falling back to `/var/log/nginx/domains/DOMAIN.log`.
 - Static reports are generated directly to `/home/USER/web/DOMAIN/stats/index.html`.
 - Generated report state is recorded under `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`.
@@ -93,6 +93,18 @@ Current realtime behavior:
 - stops the realtime service and removes the Nginx include when Hestia switches the domain to another stats type or disables stats
 
 GoAccess does not provide a general `--ignore-path` option. Static and realtime modes therefore use `scripts/hestia-goaccess-filter-log` to pre-filter access logs. The current default is `/vstats/`, and the CLI accepts comma or whitespace separated overrides through `--ignore-paths`. A future Hestia UI textarea can map directly to that setting.
+
+## Access Log Format
+
+GoAccess needs the parser format to match the access log. Hestia's generated Apache and Nginx domain configs use the standard `combined` format for the per-domain `.log` file, while AWStats uses its own config value (`LogFormat=1`) against the same style of log. For v1, the add-on should not rewrite or replace Hestia's access log directives because that would create unnecessary rollback risk for AWStats.
+
+The add-on default is:
+
+```bash
+GOACCESS_LOG_FORMAT=COMBINED
+```
+
+Static and realtime report generation pass this to GoAccess as `--log-format="${GOACCESS_LOG_FORMAT}"`. The doctor command should parse-test the selected domain log before report generation. If an administrator has custom Hestia templates with a non-combined log format, they can override `GOACCESS_LOG_FORMAT` in `/etc/hestia-goaccess/defaults.conf`.
 
 ## GoAccess Version Policy
 

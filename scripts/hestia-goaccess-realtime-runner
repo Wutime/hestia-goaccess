@@ -21,7 +21,7 @@ fi
 
 exec "${filter_log}" --follow "${log_path}" |
 	goaccess - \
-		--log-format=COMBINED \
+		--log-format="${HESTIA_GOACCESS_LOG_FORMAT:-COMBINED}" \
 		--real-time-html \
 		--output="${report_path}" \
 		--addr="${bind_addr}" \

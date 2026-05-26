@@ -317,7 +317,9 @@ Current realtime prototype behavior:
 - records `HG_PORT`, `HG_WS_URL`, and `HG_UNIT` in add-on state
 - records `HG_IGNORE_PATHS` in add-on state
 - records `HG_HTML_PREFS` in add-on state
+- records `HG_LOG_FORMAT` in add-on state
 - defaults GoAccess HTML reports to `GOACCESS_HTML_PREFS='{"theme":"darkGray"}'`
+- defaults GoAccess parsing to `GOACCESS_LOG_FORMAT=COMBINED`, matching Hestia's default Apache/Nginx domain access logs
 - Docker test command uses `--ws-url ws://example.test:20080/vstats/ws/` because the browser reaches the vhost through the host-mapped port
 - Docker dropdown testing should set `GOACCESS_REALTIME_WS_URL_TEMPLATE=ws://%domain%:20080/vstats/ws/` in `/etc/hestia-goaccess/defaults.conf`
 
@@ -392,6 +394,13 @@ GoAccess dependency policy:
 - if GoAccess is missing, install only when dependency installation is explicitly allowed
 - if GoAccess is present but older than baseline, fail with a clear error unless the admin explicitly requested an upgrade path
 - prefer GoAccess' official Debian/Ubuntu repository over stale distro packages when installation or upgrade is requested
+
+Log format policy:
+- do not change Hestia's Nginx or Apache access log formats for v1
+- consume the existing per-domain access log with GoAccess `--log-format="${GOACCESS_LOG_FORMAT}"`
+- default `GOACCESS_LOG_FORMAT=COMBINED`, which matches Hestia's generated `combined` access logs and AWStats `LogFormat=1`
+- validate parsing in `hestia-goaccess doctor USER DOMAIN` before enabling reports
+- allow admins with custom Hestia log templates to override `GOACCESS_LOG_FORMAT` in `/etc/hestia-goaccess/defaults.conf`
 
 ## Initial Milestones
 Milestone 1: Research and Skeleton
