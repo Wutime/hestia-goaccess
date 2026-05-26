@@ -62,6 +62,12 @@ docker compose up -d --build
 docker compose exec dev scripts/dev-smoke.sh
 ```
 
+Local report URL after `docker compose up -d --build`:
+
+```text
+http://hestia-goaccess.localhost:18080/vstats/
+```
+
 The default development target should mirror the maintainer's production Hestia server where possible. Use `scripts/collect-hestia-inventory.sh` for read-only inventory before changing production systems.
 
 ## GoAccess Baseline

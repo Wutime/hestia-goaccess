@@ -12,7 +12,19 @@ Build and start the development container:
 docker compose up -d --build
 ```
 
-Run the smoke test:
+The container runs the smoke test and starts Nginx automatically. Open:
+
+```text
+http://hestia-goaccess.localhost:18080/vstats/
+```
+
+On most modern systems, `*.localhost` resolves to loopback automatically. If it does not, add this to your local `/etc/hosts`:
+
+```text
+127.0.0.1 hestia-goaccess.localhost
+```
+
+Run the smoke test manually:
 
 ```bash
 docker compose exec dev scripts/dev-smoke.sh

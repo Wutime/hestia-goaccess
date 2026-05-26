@@ -7,8 +7,7 @@ services:
     working_dir: /workspace
     volumes:
       - .:/workspace
-    command: sleep infinity
+    command: scripts/dev-server.sh
     ports:
       - "18080:80"
       - "64000-64010:64000-64010"
-
