@@ -162,6 +162,9 @@ Realtime domain isolation direction:
 - proxy each domain's WebSocket path through that domain's Nginx include only
 - protect both `/vstats/` and the WebSocket path with Hestia stats auth
 - track assigned ports in add-on state and check collisions in install/repair
+- allocate ports only when `goaccess-realtime` is enabled for a domain
+- default to a configurable `64000-64999` range, after checking the server's ephemeral port range and currently listening sockets
+- do not preassign ports per user or static domain
 
 ## Resource Safety
 Realtime GoAccess is usually efficient after initial parsing, but the project must assume shared production servers and busy sites.

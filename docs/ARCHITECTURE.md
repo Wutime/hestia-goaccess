@@ -97,7 +97,22 @@ Recommended v1 shape:
 - The domain's Nginx include proxies only that domain's realtime WebSocket path to that port.
 - Hestia stats auth protects both `/vstats/` and the realtime WebSocket location.
 
-Port allocation should be deterministic and tracked in add-on state, for example under `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`, with collision detection during install/repair. If a future tested GoAccess package supports Unix domain sockets for realtime WebSockets, that can replace localhost TCP ports later, but v1 should not depend on it.
+Port allocation should happen only when a domain is switched to `goaccess-realtime`. Static domains and users without realtime domains do not need reserved ports.
+
+Recommended v1 port policy:
+
+- default configurable port range: `64000-64999`
+- allocate the first free port in the configured range
+- store the chosen port in add-on state, for example `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`
+- maintain a small global registry such as `/etc/hestia-goaccess/ports.conf` for collision checks and repair
+- check both add-on state and currently listening sockets before assigning a port
+- hold an install/repair lock while assigning ports so two concurrent enables cannot choose the same port
+- release the port when realtime is disabled for that domain
+- fail safely with a clear error if no free port is available
+
+The installer should not blindly assume the default range is safe. It should read the host's configured ephemeral port range, for example `/proc/sys/net/ipv4/ip_local_port_range` on Linux, and warn or require an override if the configured GoAccess range overlaps. Ranges such as `50000-50100` and parts of `60000-60500` may overlap common Linux ephemeral port settings. `64000-64999` is a better default candidate, but still must be verified on the target server.
+
+If a future tested GoAccess package supports Unix domain sockets for realtime WebSockets, that can replace localhost TCP ports later, but v1 should not depend on it.
 
 ## Hestia Web Server Layouts
 
