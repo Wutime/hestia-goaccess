@@ -337,8 +337,8 @@ hestia-goaccess is installed.
 
 Next steps:
   hestia-goaccess doctor USER DOMAIN
-  hestia-goaccess enable USER DOMAIN --mode static
-  hestia-goaccess enable USER DOMAIN --mode realtime
+  /usr/local/hestia/bin/v-change-web-domain-stats USER DOMAIN goaccess-static
+  /usr/local/hestia/bin/v-change-web-domain-stats USER DOMAIN goaccess-realtime
   hestia-goaccess status
 
 Static reports are written to:
@@ -347,7 +347,7 @@ Static reports are written to:
 Hestia serves the report at:
   http://DOMAIN/vstats/
 
-Realtime mode is available through the CLI and, when dropdown integration is enabled, through Hestia as goaccess-realtime.
+Realtime mode is available through Hestia as goaccess-realtime.
 Hestia dropdown integration: ${WITH_DROPDOWN}
 POST
 }
