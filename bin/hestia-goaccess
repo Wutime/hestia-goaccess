@@ -231,11 +231,12 @@ service_name() {
 	printf 'hestia-goaccess-%s-%s.service\n' "${user}" "${safe_domain}"
 }
 
-nginx_include_file() {
+nginx_include_files() {
 	local user="$1"
 	local domain="$2"
 
 	printf '/home/%s/conf/web/%s/nginx.conf_hestia_goaccess_realtime\n' "${user}" "${domain}"
+	printf '/home/%s/conf/web/%s/nginx.ssl.conf_hestia_goaccess_realtime\n' "${user}" "${domain}"
 }
 
 write_state() {
@@ -481,20 +482,24 @@ write_nginx_realtime_include() {
 	local port="$3"
 	local include_file
 
-	include_file="$(nginx_include_file "${user}" "${domain}")"
-	cat > "${include_file}" <<NGINX
+	while IFS= read -r include_file; do
+		cat > "${include_file}" <<NGINX
 location ~ ^/vstats/ws/?$ {
+	include /home/${user}/web/${domain}/stats/auth.conf*;
 	proxy_pass http://${GOACCESS_REALTIME_BIND}:${port};
 	proxy_http_version 1.1;
 	proxy_set_header Upgrade \$http_upgrade;
 	proxy_set_header Connection "Upgrade";
 	proxy_set_header Host \$host;
+	proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+	proxy_set_header X-Forwarded-Proto \$scheme;
 	proxy_read_timeout 1h;
 	proxy_send_timeout 1h;
 }
 NGINX
-	chown "${user}:${user}" "${include_file}"
-	chmod 0644 "${include_file}"
+		chown "${user}:${user}" "${include_file}"
+		chmod 0644 "${include_file}"
+	done < <(nginx_include_files "${user}" "${domain}")
 
 	nginx -t >/dev/null
 	systemctl reload nginx
@@ -504,10 +509,15 @@ remove_nginx_realtime_include() {
 	local user="$1"
 	local domain="$2"
 	local include_file
+	local removed="no"
 
-	include_file="$(nginx_include_file "${user}" "${domain}")"
-	if [[ -f "${include_file}" ]]; then
-		rm -f "${include_file}"
+	while IFS= read -r include_file; do
+		if [[ -f "${include_file}" ]]; then
+			rm -f "${include_file}"
+			removed="yes"
+		fi
+	done < <(nginx_include_files "${user}" "${domain}")
+	if [[ "${removed}" == "yes" ]]; then
 		nginx -t >/dev/null
 		systemctl reload nginx
 	fi
