@@ -1,6 +1,6 @@
 # Docker Test Harness
 
-Docker support is planned for development and customer evaluation before production rollout.
+Docker support is for development and customer evaluation before production rollout. It is not the recommended production deployment path for Hestia servers; production users should install the add-on on their actual Hestia VPS/server after reviewing the README and running `hestia-goaccess doctor`.
 
 The initial Docker harness should validate installer behavior, Hestia path detection, GoAccess command rendering, static report generation, and Nginx include generation. It is not a replacement for VPS testing because Hestia depends on real service management, cron, web server reloads, and production-like networking.
 
@@ -82,6 +82,8 @@ The inventory should be saved outside public commits if it contains domain names
 ## Hestia VPS Profile
 
 The `hestia-vps` Compose profile is an experimental pretend-VPS container. It uses Ubuntu 22.04 with systemd and attempts to install real Hestia with Nginx + Apache, matching the maintainer production shape more closely than the fast fixture.
+
+This is the customer-facing Docker evaluation path: it creates a disposable local Hestia-like server so administrators can inspect the installer, dropdown integration, static reports, realtime reports, and uninstall behavior without spending money on a VPS. It includes Docker-specific concessions such as privileged mode, host cgroup mounting, localhost port mappings, and a local WebSocket URL override; those are not production requirements.
 
 Start the container:
 

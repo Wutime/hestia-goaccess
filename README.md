@@ -6,13 +6,108 @@ The goal is to give Hestia administrators a privacy-friendly alternative to AWSt
 
 ## Status
 
-This project is in early prototype development. Do not install it on a production Hestia server yet.
+This project is in prototype development. It has passed local Docker testing against a fresh Hestia `1.9.4` install, but it still needs a real VPS/live-server pilot before a public release.
+
+For a live pilot, install during a quiet maintenance window, start with one low-risk domain, keep the terminal open, and run the uninstall command below if anything looks wrong.
 
 Current target:
 
 - HestiaCP 1.9.4+
 - Debian 11/12 and Ubuntu 22.04/24.04 LTS, matching Hestia's supported platforms
 - GoAccess 1.10.2+
+
+## Live Pilot Quick Start
+
+Run these commands as `root` on a Hestia server.
+
+Clone the project:
+
+```bash
+cd /root
+git clone https://github.com/Wutime/hestia-goaccess.git
+cd hestia-goaccess
+```
+
+Install with Hestia dropdown integration:
+
+```bash
+./install.sh --with-hestia-dropdown
+```
+
+For a non-interactive install:
+
+```bash
+./install.sh --yes --with-hestia-dropdown
+```
+
+The installer will:
+
+- verify HestiaCP `1.9.4+`
+- verify Debian 11/12 or Ubuntu 22.04/24.04
+- verify GoAccess `1.10.2+`
+- offer to install GoAccess from the official GoAccess Debian/Ubuntu repository if it is missing
+- stop with a clear error if an older GoAccess is already installed unless `--upgrade-goaccess` is passed
+- back up wrapped Hestia files before changing them
+
+Check one domain before enabling reports:
+
+```bash
+hestia-goaccess doctor USER DOMAIN
+```
+
+To test static mode:
+
+```bash
+/usr/local/hestia/bin/v-change-web-domain-stats USER DOMAIN goaccess-static
+hestia-goaccess doctor USER DOMAIN
+```
+
+Open:
+
+```text
+http://DOMAIN/vstats/
+```
+
+To test realtime mode:
+
+```bash
+/usr/local/hestia/bin/v-change-web-domain-stats USER DOMAIN goaccess-realtime
+hestia-goaccess status USER DOMAIN
+```
+
+Open:
+
+```text
+http://DOMAIN/vstats/
+```
+
+To return the domain to AWStats:
+
+```bash
+/usr/local/hestia/bin/v-change-web-domain-stats USER DOMAIN awstats
+```
+
+To disable stats for the domain:
+
+```bash
+/usr/local/hestia/bin/v-delete-web-domain-stats USER DOMAIN
+```
+
+To uninstall the add-on and remove dropdown integration:
+
+```bash
+/usr/local/share/hestia-goaccess/uninstall.sh --remove-hestia-dropdown --remove-state
+```
+
+The uninstall command leaves the system `goaccess` package and generated report files in place. Remove those manually only if you are sure nothing else uses them.
+
+## Supported OS And GoAccess Install Policy
+
+HestiaCP `1.9.4` supports 64-bit Debian 11/12 and Ubuntu 22.04/24.04. `hestia-goaccess` mirrors that OS matrix for v1 and exits on other operating systems instead of guessing.
+
+GoAccess documents install methods for many platforms, including Fedora, Arch, Gentoo, Homebrew/macOS, and BSD package managers. Those are out of scope for this add-on unless Hestia supports those platforms.
+
+For Debian/Ubuntu Hestia servers, the installer uses GoAccess' official Debian/Ubuntu repository when GoAccess is missing or when an administrator explicitly permits an upgrade. This is intentional because distro packages may lag behind the `GOACCESS_MIN_VERSION` baseline.
 
 ## Planned Features
 
@@ -25,7 +120,7 @@ Current target:
 - Detect unsupported server layouts before making changes.
 - Make install, repair, and uninstall operations idempotent and reversible.
 
-## Prototype Commands
+## Command Reference
 
 The current installer prepares static GoAccess mode without patching Hestia core files:
 
@@ -65,6 +160,7 @@ hestia-goaccess enable USER DOMAIN --mode static
 hestia-goaccess enable USER DOMAIN --mode realtime [--ws-url URL]
 hestia-goaccess disable USER DOMAIN
 hestia-goaccess status [USER DOMAIN]
+hestia-goaccess terminal [USER] DOMAIN
 ```
 
 Static mode writes:
@@ -84,10 +180,26 @@ Planned commands:
 ```bash
 hestia-goaccess repair
 hestia-goaccess migrate-awstats --all --mode static
-hestia-goaccess uninstall
 ```
 
 Realtime mode is an explicit per-domain opt-in. Existing AWStats domains should only be migrated by an explicit administrator command, and the initial migration target should be static mode.
+
+To uninstall the add-on while also removing Hestia dropdown integration and add-on state:
+
+```bash
+sudo /usr/local/share/hestia-goaccess/uninstall.sh --remove-hestia-dropdown --remove-state
+```
+
+That uninstall path:
+
+- disables GoAccess stats on domains currently using `goaccess-static` or `goaccess-realtime`
+- stops/disables per-domain realtime systemd services
+- removes per-domain realtime Nginx includes
+- restores wrapped Hestia stats commands
+- removes `goaccess-static` and `goaccess-realtime` from `STATS_SYSTEM`
+- removes add-on state/config and per-domain runtime directories
+- leaves generated report files in place unless the administrator removes them separately
+- does not remove the system `goaccess` package
 
 For local Docker testing, the browser sees the Hestia vhost through port `20080`, so pass an explicit WebSocket URL:
 
@@ -125,8 +237,37 @@ Realtime mode currently:
 - proxies the WebSocket through the same vhost
 - ignores `/vstats/` by default so GoAccess does not count its own report traffic
 - preselects GoAccess' shipped `darkGray` HTML theme by default
+- uses a bounded systemd stop timeout so re-enable and uninstall do not hang on stale realtime processes
 - records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`
 - stops the realtime service and removes the Nginx include when Hestia switches the domain away from `goaccess-realtime`
+
+## SSH Terminal Dashboard
+
+GoAccess also includes an interactive terminal dashboard. The [GoAccess features page](https://goaccess.io/features) notes that terminal output updates more frequently than HTML output, and that GoAccess can run directly against an access log with a selected log format.
+
+This terminal dashboard is separate from the `/vstats/` HTML report. Enabling `goaccess-realtime` does not attach a shell UI automatically, but `hestia-goaccess` can resolve the Hestia user, domain log path, ignored paths, and log format for you.
+
+As `root`, an administrator can open a live terminal dashboard for any Hestia domain with:
+
+```bash
+hestia-goaccess terminal USER DOMAIN
+```
+
+The admin shortcut is equivalent:
+
+```bash
+hestia-goaccess USER DOMAIN
+```
+
+For a domain owner logged in over SSH as their Hestia user, the single-domain shortcut is:
+
+```bash
+hestia-goaccess DOMAIN
+```
+
+These commands use the same parser defaults as the managed reports: `/vstats/` filtering, `COMBINED` log format, anonymized IPs, no query strings, and crawler ignoring. If the domain has already been enabled by `hestia-goaccess`, the terminal command also reuses that domain's recorded ignored paths and log format.
+
+If the domain user's SSH account cannot read the access log, use the `root` form above or ask the server administrator to confirm domain log permissions. Hestia layouts may use `/var/log/apache2/domains/DOMAIN.log` or `/var/log/nginx/domains/DOMAIN.log`; `hestia-goaccess doctor USER DOMAIN` checks the log path used by the add-on.
 
 Static and realtime modes both pre-filter logs before sending them to GoAccess. The default ignored path list is:
 
@@ -142,6 +283,34 @@ hestia-goaccess enable USER DOMAIN --mode realtime --ignore-paths '/vstats/,/adm
 ```
 
 This is intentionally designed so a future Hestia UI field can expose the same setting without changing the underlying behavior.
+
+## Configuration Defaults
+
+Configuration should stay simple for the first public release. The defaults are meant to be production-friendly for most customers:
+
+- global smart defaults live in `/etc/hestia-goaccess/defaults.conf`
+- per-domain choices are recorded in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`
+- the Hestia domain page exposes the stats engine choice first
+- advanced per-domain controls should be CLI/config-file driven unless the Hestia UI patch remains small and reversible
+
+Realtime defaults should favor low overhead on shared production servers. The intended defaults are:
+
+- filter `/vstats/` so GoAccess does not count its own dashboard
+- ignore common crawlers where GoAccess can do so safely
+- avoid query strings and anonymize visitor IPs by default
+- avoid expensive DNS/GeoIP behavior unless the administrator enables it
+- defer GoAccess `--persist` / `--restore` for realtime until it is proven stable across supported server targets
+
+A future Hestia UI textarea can expose selected per-domain options, especially ignored paths for realtime domains. That should not block v1 if it makes the installer more fragile.
+
+Common adjustments administrators may consider:
+
+- `GOACCESS_IGNORE_PATHS`: add private app paths that should not appear in reports, such as `/admin` or `/checkout`.
+- `GOACCESS_HTML_PREFS`: change or clear the default `darkGray` HTML theme.
+- `GOACCESS_PORT_RANGE`: move realtime listeners to a different local-only port range if `64000-64999` conflicts with local policy.
+- `GOACCESS_LOG_FORMAT`: change only if the server intentionally customized Hestia's access log format.
+
+The default settings are usually best. Change per-domain settings only when there is a clear reason, then run `hestia-goaccess doctor USER DOMAIN` before enabling or re-enabling that domain.
 
 The default GoAccess HTML preferences are:
 

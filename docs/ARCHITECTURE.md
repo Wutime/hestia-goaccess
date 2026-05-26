@@ -88,9 +88,23 @@ Current realtime behavior:
 - writes realtime HTML to `/home/USER/web/DOMAIN/stats/index.html`
 - filters `/vstats/` by default before GoAccess parses logs
 - preselects GoAccess' shipped `darkGray` HTML theme through `GOACCESS_HTML_PREFS='{"theme":"darkGray"}'`
-- creates `/var/lib/hestia-goaccess/USER/DOMAIN` for future persisted storage, but does not use GoAccess `--persist/--restore` in the filtered realtime pipeline yet because restoring data and replaying filtered stdin can double-count after restarts
+- uses bounded systemd stop behavior so re-enable and uninstall do not hang on stale realtime processes
 - records the selected port, service unit, and WebSocket URL in add-on state
 - stops the realtime service and removes the Nginx include when Hestia switches the domain to another stats type or disables stats
+
+## Terminal Dashboard
+
+GoAccess' terminal dashboard is useful over SSH and is separate from the managed `/vstats/` HTML report. Enabling `goaccess-realtime` should not spawn or attach a terminal UI, but the installed GoAccess binary and validated domain log path make it straightforward for administrators to open one manually.
+
+The CLI should provide Hestia-aware shortcuts:
+
+```bash
+hestia-goaccess terminal USER DOMAIN
+hestia-goaccess USER DOMAIN
+hestia-goaccess DOMAIN
+```
+
+`hestia-goaccess DOMAIN` resolves the Hestia user from the current shell login. Domain users with SSH access can use it directly only if the Hestia server grants them read access to their domain log. Treat that as layout-dependent, not guaranteed.
 
 GoAccess does not provide a general `--ignore-path` option. Static and realtime modes therefore use `scripts/hestia-goaccess-filter-log` to pre-filter access logs. The current default is `/vstats/`, and the CLI accepts comma or whitespace separated overrides through `--ignore-paths`. A future Hestia UI textarea can map directly to that setting.
 
@@ -118,6 +132,8 @@ The v1 baseline is GoAccess `1.10.2` or newer. The installer and `doctor` comman
 
 If GoAccess is missing, the preferred Debian/Ubuntu source is GoAccess' official deb repository. If a server already has an older distro package installed, the add-on should explain how to upgrade through the official GoAccess repo or provide an explicit `--upgrade-goaccess` path.
 
+HestiaCP `1.9.4` officially supports Debian 11/12 and Ubuntu 22.04/24.04 on 64-bit AMD64/x86_64 or ARM64/aarch64 systems. The add-on should mirror that OS matrix for v1. GoAccess documents package commands for Fedora, Arch, Gentoo, Homebrew/macOS, BSD, and other systems, but those are out of scope unless Hestia supports those platforms.
+
 ## Realtime Mode
 
 Realtime mode should use one GoAccess process per enabled domain, managed by systemd on real servers.
@@ -128,7 +144,7 @@ Recommended defaults:
 - use a deterministic unique local port per realtime domain
 - write the HTML report to Hestia's stats directory
 - set `--ws-url` to the public `/vstats/` WebSocket route
-- use `--persist`, `--restore`, and a per-domain `--db-path`
+- keep GoAccess realtime `--persist` / `--restore` disabled until the shutdown/restore path is proven stable
 - apply systemd resource controls such as `Nice=10`, `MemoryMax`, restart limits, and private temp
 
 Realtime mode must protect the HTML report and the WebSocket endpoint consistently.
@@ -206,6 +222,22 @@ Administrators should be able to override these defaults per domain. Preferred o
 3. Optional Hestia UI controls after the core behavior is stable.
 
 The UI checkbox route is useful, but it means patching Hestia's web interface and command handlers. That should come after the lower-risk CLI/config implementation unless the first public release explicitly prioritizes UI completeness.
+
+## Realtime Overhead Defaults
+
+Realtime mode should ship with conservative defaults because Hestia servers often host many unrelated domains and customers.
+
+Recommended v1 behavior:
+
+- filter the stats route itself, default `/vstats/`
+- ignore common crawlers through GoAccess where available
+- exclude or hide static assets in reports where that reduces noise without changing the server log format
+- keep DNS and GeoIP lookups disabled unless the administrator opts in
+- keep realtime `--persist` / `--restore` disabled until it is proven stable across supported server targets
+- avoid repeatedly reparsing giant historical logs as a future hardening goal
+- keep systemd CPU, memory, IO, and privilege limits conservative
+
+Global defaults should be stored in `/etc/hestia-goaccess/defaults.conf`. Per-domain overrides should be stored in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf` and updated through the CLI first. A Hestia domain-page textarea for selected GoAccess options is desirable later, especially for ignored paths, but it should remain optional unless it can be implemented without broad PHP UI patching.
 
 ## Docker Strategy
 

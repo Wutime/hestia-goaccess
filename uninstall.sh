@@ -43,6 +43,14 @@ backup_file() {
 	printf 'backup: %s\n' "${backup_dir}/$(basename "${file}").${timestamp}"
 }
 
+state_value() {
+	local file="$1"
+	local key="$2"
+
+	[[ -f "${file}" ]] || return 1
+	sed -n "s/^${key}='\\([^']*\\)'$/\\1/p" "${file}" | head -n 1
+}
+
 confirm() {
 	local prompt="$1"
 	local answer
@@ -95,6 +103,81 @@ done
 
 confirm "Remove hestia-goaccess CLI files?"
 
+cleanup_realtime_artifacts() {
+	local file
+	local user
+	local domain
+	local unit
+	local unit_path
+	local include
+	local changed_units="no"
+	local changed_nginx="no"
+
+	while IFS= read -r file; do
+		user="$(state_value "${file}" "HG_USER" || true)"
+		domain="$(state_value "${file}" "HG_DOMAIN" || true)"
+		unit="$(state_value "${file}" "HG_UNIT" || true)"
+
+		if [[ -n "${unit}" ]]; then
+			systemctl stop "${unit}" >/dev/null 2>&1 || true
+			systemctl disable "${unit}" >/dev/null 2>&1 || true
+			unit_path="/etc/systemd/system/${unit}"
+			if [[ -f "${unit_path}" ]]; then
+				rm -f "${unit_path}"
+				printf 'removed: %s\n' "${unit_path}"
+				changed_units="yes"
+			fi
+		fi
+
+		if [[ -n "${user}" && -n "${domain}" ]]; then
+			include="/home/${user}/conf/web/${domain}/nginx.conf_hestia_goaccess_realtime"
+			if [[ -f "${include}" ]]; then
+				rm -f "${include}"
+				printf 'removed: %s\n' "${include}"
+				changed_nginx="yes"
+			fi
+			if [[ "${REMOVE_STATE}" == "yes" ]]; then
+				rm -rf "/var/lib/hestia-goaccess/${user:?}/${domain:?}" "/run/hestia-goaccess/${user:?}/${domain:?}"
+			fi
+		fi
+	done < <(find /etc/hestia-goaccess/domains -mindepth 2 -maxdepth 2 -type f -name '*.conf' 2>/dev/null | sort)
+
+	while IFS= read -r unit_path; do
+		unit="$(basename "${unit_path}")"
+		systemctl stop "${unit}" >/dev/null 2>&1 || true
+		systemctl disable "${unit}" >/dev/null 2>&1 || true
+		rm -f "${unit_path}"
+		printf 'removed: %s\n' "${unit_path}"
+		changed_units="yes"
+	done < <(find /etc/systemd/system -maxdepth 1 -type f -name 'hestia-goaccess-*.service' 2>/dev/null | sort)
+
+	while IFS= read -r include; do
+		rm -f "${include}"
+		printf 'removed: %s\n' "${include}"
+		changed_nginx="yes"
+	done < <(find /home -path '*/conf/web/*/nginx.conf_hestia_goaccess_realtime' -type f 2>/dev/null | sort)
+
+	if [[ "${changed_units}" == "yes" ]]; then
+		systemctl daemon-reload >/dev/null 2>&1 || true
+	fi
+
+	if [[ "${changed_nginx}" == "yes" ]] && command -v nginx >/dev/null 2>&1; then
+		if nginx -t; then
+			systemctl reload nginx >/dev/null 2>&1 || true
+		else
+			printf 'warning: nginx config test failed after removing hestia-goaccess includes; nginx was not reloaded\n' >&2
+		fi
+	fi
+
+	if [[ "${REMOVE_STATE}" == "yes" ]]; then
+		rmdir /var/lib/hestia-goaccess/* 2>/dev/null || true
+		rmdir /var/lib/hestia-goaccess 2>/dev/null || true
+		rm -rf /run/hestia-goaccess
+	fi
+}
+
+cleanup_realtime_artifacts
+
 remove_dropdown_integration() {
 	local conf="/usr/local/hestia/conf/hestia.conf"
 	local current
@@ -127,6 +210,27 @@ remove_dropdown_integration() {
 		return 1
 	}
 
+	reset_addon_domains() {
+		local web_conf
+		local user
+		local line
+		local domain
+		local stats
+
+		while IFS= read -r web_conf; do
+			user="$(basename "$(dirname "${web_conf}")")"
+			while IFS= read -r line; do
+				domain="$(printf '%s\n' "${line}" | sed -n "s/.*DOMAIN='\\([^']*\\)'.*/\\1/p")"
+				stats="$(printf '%s\n' "${line}" | sed -n "s/.* STATS='\\([^']*\\)'.*/\\1/p")"
+				[[ -n "${domain}" ]] || continue
+				is_addon_type "${stats}" || continue
+				/usr/local/hestia/bin/v-delete-web-domain-stats "${user}" "${domain}" >/dev/null 2>&1 || true
+				printf 'disabled GoAccess stats: %s/%s\n' "${user}" "${domain}"
+			done < "${web_conf}"
+		done < <(find /usr/local/hestia/data/users -mindepth 2 -maxdepth 2 -type f -name web.conf 2>/dev/null | sort)
+	}
+
+	reset_addon_domains
 	restore_wrapper "v-update-web-domain-stat"
 	restore_wrapper "v-delete-web-domain-stats"
 

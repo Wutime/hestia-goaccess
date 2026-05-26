@@ -36,6 +36,12 @@ HestiaCP 1.9.4+
 
 Do not support older versions unless explicitly decided later. Assume Hestia `1.9.4` as the compatibility floor for paths, CLI behavior, and UI behavior.
 
+Supported v1 operating systems mirror HestiaCP's official `1.9.4` matrix:
+- Debian 11/12
+- Ubuntu 22.04/24.04 LTS
+
+GoAccess documents package commands for many other operating systems, but Fedora, Arch, Gentoo, Homebrew/macOS, BSD, and similar package-manager paths are out of scope unless Hestia itself supports those platforms. For supported Debian/Ubuntu Hestia servers, use GoAccess' official Debian/Ubuntu repository when GoAccess is missing or when the administrator explicitly allows an upgrade, because distro packages may lag behind the `GOACCESS_MIN_VERSION` baseline.
+
 ## Independence Requirement
 This project must be standalone.
 
@@ -135,7 +141,6 @@ Realtime mode should run a per-domain GoAccess process managed by systemd.
 Recommended shape:
 - one service unit per enabled domain
 - one domain-specific GoAccess config file
-- one domain-specific persisted GoAccess database path
 - one domain-specific output HTML file under the Hestia stats directory
 - WebSocket endpoint proxied safely through Nginx/Hestia
 
@@ -146,9 +151,6 @@ goaccess /path/to/access.log \
   --config-file=/etc/hestia-goaccess/domains/USER/DOMAIN.conf \
   --real-time-html \
   --output=/home/USER/web/DOMAIN/stats/index.html \
-  --persist \
-  --restore \
-  --db-path=/var/lib/hestia-goaccess/USER/DOMAIN
 ```
 
 Do not hardcode this as final syntax until tested against Hestia `1.9.4` logs and GoAccess package versions.
@@ -180,7 +182,7 @@ Use systemd limits by default:
 
 Avoid creating a design where enabling many sites accidentally creates unbounded memory or CPU pressure.
 
-Startup catch-up parsing can be the expensive part. Use persisted GoAccess state to avoid reparsing huge logs on every restart.
+Startup catch-up parsing can be the expensive part. GoAccess `--persist` / `--restore` looked attractive but produced invalid restored DB files and a GoAccess crash in the Docker realtime pipeline, so keep it disabled for v1 until it is proven stable on supported real VPS targets.
 
 ## Privacy Defaults
 Default configuration should be privacy-friendly:
@@ -192,6 +194,16 @@ Default configuration should be privacy-friendly:
 - encourage or enforce authentication for stats pages
 
 Privacy defaults should be easy to override per domain. Prefer CLI flags and `/etc/hestia-goaccess/domains/USER/DOMAIN.conf` first; optional Hestia UI checkboxes can come later if the UI patch surface remains small and reversible.
+
+Realtime overhead defaults should also be conservative by default:
+- filter noisy dashboard paths such as `/vstats/` before GoAccess parses logs
+- ignore common crawlers where GoAccess supports it safely
+- reduce noisy static asset reporting where practical
+- do not enable expensive DNS or GeoIP lookups by default
+- keep GoAccess realtime `--persist` / `--restore` disabled until it is proven stable across supported server targets
+- avoid repeatedly reparsing giant historical logs as a future hardening goal
+
+Global configuration should provide smart defaults in `/etc/hestia-goaccess/defaults.conf`. Per-domain configuration should be possible through CLI flags and `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`. A textarea or option block below Hestia's per-domain stats dropdown is desirable for realtime domains, especially for ignored paths, but should not block v1 if it makes installation or Hestia upgrade compatibility fragile.
 
 The project should not claim to be a perfect Google Analytics replacement. It analyzes server logs. Behind Cloudflare, it sees origin requests, not every edge-cached hit.
 
@@ -313,7 +325,7 @@ Current realtime prototype behavior:
 - proxies `/vstats/ws/` to the local GoAccess listener
 - filters ignored paths before GoAccess parses logs; default is `/vstats/`
 - supports comma or whitespace separated ignore paths through `--ignore-paths` or `HESTIA_GOACCESS_IGNORE_PATHS`
-- creates `/var/lib/hestia-goaccess/USER/DOMAIN` for future persisted storage, but the current filtered realtime pipeline intentionally does not use `--persist/--restore` because replaying filtered stdin with restored data can double-count after restarts
+- uses bounded systemd stop behavior so re-enable and uninstall do not hang on stale realtime processes
 - records `HG_PORT`, `HG_WS_URL`, and `HG_UNIT` in add-on state
 - records `HG_IGNORE_PATHS` in add-on state
 - records `HG_HTML_PREFS` in add-on state
@@ -322,6 +334,8 @@ Current realtime prototype behavior:
 - defaults GoAccess parsing to `GOACCESS_LOG_FORMAT=COMBINED`, matching Hestia's default Apache/Nginx domain access logs
 - Docker test command uses `--ws-url ws://example.test:20080/vstats/ws/` because the browser reaches the vhost through the host-mapped port
 - Docker dropdown testing should set `GOACCESS_REALTIME_WS_URL_TEMPLATE=ws://%domain%:20080/vstats/ws/` in `/etc/hestia-goaccess/defaults.conf`
+
+GoAccess also provides an SSH terminal dashboard. This is separate from the managed `/vstats/` HTML report; enabling `goaccess-realtime` should not attach a terminal UI automatically. The CLI supports `hestia-goaccess terminal USER DOMAIN`, admin shortcut `hestia-goaccess USER DOMAIN`, and current-user shortcut `hestia-goaccess DOMAIN`. The single-domain shortcut resolves the Hestia user from the current shell login and works only if that SSH account can read the domain log.
 
 Primary production target profile:
 - Ubuntu 22.04.5 LTS
