@@ -63,6 +63,8 @@ Static mode should be the safest initial mode:
 - no long-running per-domain process
 - no WebSocket listener
 - compatible with Hestia's queued `webstats` update model
+- regenerated when Hestia runs `v-update-sys-queue webstats`, or when an administrator manually runs `v-update-web-domain-stat USER DOMAIN`
+- reads the selected active Hestia domain log in v1, so historical depth depends on logrotate and does not yet provide AWStats-style monthly/yearly archives
 - output written to `/home/USER/web/DOMAIN/stats/index.html`
 
 Static mode should support Nginx-only and Nginx-plus-Apache Hestia layouts first. Apache-only behavior should be detected and documented if not supported in the first implementation.
