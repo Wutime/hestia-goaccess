@@ -1,0 +1,11 @@
+#!/bin/bash
+# hestia-goaccess managed wrapper for Hestia v-delete-web-domain.
+
+user=$1
+domain=$2
+
+if [ -x /usr/local/bin/hestia-goaccess ]; then
+	/usr/local/bin/hestia-goaccess disable "$user" "$domain" >/dev/null 2>&1 || true
+fi
+
+exec /usr/local/hestia/bin/v-delete-web-domain.hestia-goaccess-original "$@"

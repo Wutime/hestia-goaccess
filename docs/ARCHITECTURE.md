@@ -64,7 +64,9 @@ Static mode should be the safest initial mode:
 - no WebSocket listener
 - compatible with Hestia's queued `webstats` update model
 - regenerated when Hestia runs `v-update-sys-queue webstats`, or when an administrator manually runs `v-update-web-domain-stat USER DOMAIN`
-- reads the selected active Hestia domain log in v1, so historical depth depends on logrotate and does not yet provide AWStats-style monthly/yearly archives
+- uses GoAccess `--persist`, `--restore`, `--db-path`, and `--keep-last` by default with a per-domain DB under `/var/lib/hestia-goaccess/USER/DOMAIN`
+- defaults to `GOACCESS_KEEP_LAST=90`, creating a rolling 90-day dataset rather than AWStats-style monthly/yearly archive pages
+- parses the selected Hestia log directly when ignored path filtering is disabled; otherwise filters ignored paths before passing data to GoAccess
 - output written to `/home/USER/web/DOMAIN/stats/index.html`
 
 Static mode should support Nginx-only and Nginx-plus-Apache Hestia layouts first. Apache-only behavior should be detected and documented if not supported in the first implementation.

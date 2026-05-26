@@ -16,7 +16,7 @@ Usage:
 
 Options:
   --yes           Run without confirmation prompts.
-  --remove-state  Also remove /etc/hestia-goaccess state and config files.
+  --remove-state  Also remove /etc/hestia-goaccess state/config files.
   --remove-hestia-dropdown
                   Restore Hestia stats commands and remove GoAccess stats types from STATS_SYSTEM.
   --prefix PATH   Remove the hestia-goaccess command from PATH/bin.
@@ -109,6 +109,8 @@ cleanup_realtime_artifacts() {
 	local domain
 	local unit
 	local unit_path
+	local db_path
+	local report_path
 	local include
 	local changed_units="no"
 	local changed_nginx="no"
@@ -117,6 +119,8 @@ cleanup_realtime_artifacts() {
 		user="$(state_value "${file}" "HG_USER" || true)"
 		domain="$(state_value "${file}" "HG_DOMAIN" || true)"
 		unit="$(state_value "${file}" "HG_UNIT" || true)"
+		db_path="$(state_value "${file}" "HG_DB_PATH" || true)"
+		report_path="$(state_value "${file}" "HG_REPORT_PATH" || true)"
 
 		if [[ -n "${unit}" ]]; then
 			systemctl stop "${unit}" >/dev/null 2>&1 || true
@@ -136,8 +140,15 @@ cleanup_realtime_artifacts() {
 				printf 'removed: %s\n' "${include}"
 				changed_nginx="yes"
 			fi
-			if [[ "${REMOVE_STATE}" == "yes" ]]; then
-				rm -rf "/var/lib/hestia-goaccess/${user:?}/${domain:?}" "/run/hestia-goaccess/${user:?}/${domain:?}"
+			include="/home/${user}/conf/web/${domain}/nginx.ssl.conf_hestia_goaccess_realtime"
+			if [[ -f "${include}" ]]; then
+				rm -f "${include}"
+				printf 'removed: %s\n' "${include}"
+				changed_nginx="yes"
+			fi
+			rm -rf "${db_path:-/var/lib/hestia-goaccess/${user:?}/${domain:?}}" "/run/hestia-goaccess/${user:?}/${domain:?}"
+			if [[ -n "${report_path}" ]]; then
+				rm -f "${report_path}"
 			fi
 		fi
 	done < <(find /etc/hestia-goaccess/domains -mindepth 2 -maxdepth 2 -type f -name '*.conf' 2>/dev/null | sort)
@@ -155,7 +166,7 @@ cleanup_realtime_artifacts() {
 		rm -f "${include}"
 		printf 'removed: %s\n' "${include}"
 		changed_nginx="yes"
-	done < <(find /home -path '*/conf/web/*/nginx.conf_hestia_goaccess_realtime' -type f 2>/dev/null | sort)
+	done < <(find /home \( -path '*/conf/web/*/nginx.conf_hestia_goaccess_realtime' -o -path '*/conf/web/*/nginx.ssl.conf_hestia_goaccess_realtime' \) -type f 2>/dev/null | sort)
 
 	if [[ "${changed_units}" == "yes" ]]; then
 		systemctl daemon-reload >/dev/null 2>&1 || true
@@ -169,11 +180,8 @@ cleanup_realtime_artifacts() {
 		fi
 	fi
 
-	if [[ "${REMOVE_STATE}" == "yes" ]]; then
-		rmdir /var/lib/hestia-goaccess/* 2>/dev/null || true
-		rmdir /var/lib/hestia-goaccess 2>/dev/null || true
-		rm -rf /run/hestia-goaccess
-	fi
+	rm -rf /var/lib/hestia-goaccess
+	rm -rf /run/hestia-goaccess
 }
 
 cleanup_realtime_artifacts
@@ -233,6 +241,8 @@ remove_dropdown_integration() {
 	reset_addon_domains
 	restore_wrapper "v-update-web-domain-stat"
 	restore_wrapper "v-delete-web-domain-stats"
+	restore_wrapper "v-delete-web-domain"
+	restore_wrapper "v-delete-user"
 
 	if [[ -f "${conf}" ]]; then
 		current="$(sed -n "s/^STATS_SYSTEM='\\(.*\\)'$/\\1/p" "${conf}" | head -n 1)"
@@ -284,4 +294,4 @@ else
 fi
 
 printf 'removed: %s/bin/hestia-goaccess\n' "${PREFIX}"
-printf 'generated stats reports were left in place\n'
+printf 'removed GoAccess databases and generated reports known to hestia-goaccess state\n'

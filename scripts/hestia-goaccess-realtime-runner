@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "$#" -ne 7 ]]; then
-	printf 'usage: hestia-goaccess-realtime-runner FILTER_LOG LOG_PATH REPORT_PATH BIND PORT WS_URL DOMAIN\n' >&2
+if [[ "$#" -ne 8 ]]; then
+	printf 'usage: hestia-goaccess-realtime-runner FILTER_LOG LOG_PATH REPORT_PATH BIND PORT WS_URL DOMAIN DB_PATH\n' >&2
 	exit 64
 fi
 
@@ -13,15 +13,43 @@ bind_addr="$4"
 port="$5"
 ws_url="$6"
 domain="$7"
+db_path="$8"
 
 html_pref_args=()
 if [[ -n "${HESTIA_GOACCESS_HTML_PREFS:-}" ]]; then
 	html_pref_args=(--html-prefs="${HESTIA_GOACCESS_HTML_PREFS}")
 fi
 
-exec "${filter_log}" --follow "${log_path}" |
+ignore_paths_empty() {
+	[[ -z "$(printf '%s' "${HESTIA_GOACCESS_IGNORE_PATHS:-}" | tr -d '[:space:],')" ]]
+}
+
+persist_args=(--persist --db-path="${db_path}" --keep-last="${HESTIA_GOACCESS_KEEP_LAST:-90}")
+if [[ -n "$(find "${db_path}" -mindepth 1 -maxdepth 1 -type f -print -quit 2>/dev/null)" ]]; then
+	persist_args=(--restore "${persist_args[@]}")
+fi
+
+if ignore_paths_empty; then
 	goaccess - \
 		--log-format="${HESTIA_GOACCESS_LOG_FORMAT:-COMBINED}" \
+		"${persist_args[@]}" \
+		--real-time-html \
+		--output="${report_path}" \
+		--addr="${bind_addr}" \
+		--port="${port}" \
+		--ws-url="${ws_url}" \
+		--anonymize-ip \
+		--no-query-string \
+		--ignore-crawlers \
+		"${html_pref_args[@]}" \
+		--html-report-title="${domain} GoAccess Realtime" \
+		--no-progress \
+		"${log_path}"
+else
+	exec "${filter_log}" --follow "${log_path}" |
+		goaccess - \
+			--log-format="${HESTIA_GOACCESS_LOG_FORMAT:-COMBINED}" \
+			"${persist_args[@]}" \
 		--real-time-html \
 		--output="${report_path}" \
 		--addr="${bind_addr}" \
@@ -33,3 +61,4 @@ exec "${filter_log}" --follow "${log_path}" |
 		"${html_pref_args[@]}" \
 		--html-report-title="${domain} GoAccess Realtime" \
 		--no-progress
+fi

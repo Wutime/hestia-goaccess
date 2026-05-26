@@ -218,6 +218,7 @@ install_files() {
 
 	install -d -m 0755 "${PREFIX}/bin"
 	install -d -m 0755 /etc/hestia-goaccess/domains
+	install -d -m 0755 /var/lib/hestia-goaccess
 	install -d -m 0755 "${share_dir}/conf" "${share_dir}/scripts"
 
 	install -m 0755 "${repo_root}/bin/hestia-goaccess" "${PREFIX}/bin/hestia-goaccess"
@@ -325,6 +326,8 @@ install_hestia_dropdown_integration() {
 	done
 	install_hestia_wrapper "v-update-web-domain-stat"
 	install_hestia_wrapper "v-delete-web-domain-stats"
+	install_hestia_wrapper "v-delete-web-domain"
+	install_hestia_wrapper "v-delete-user"
 	info "ok: Hestia dropdown integration installed"
 }
 

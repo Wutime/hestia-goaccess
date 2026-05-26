@@ -1,0 +1,15 @@
+#!/bin/bash
+# hestia-goaccess managed wrapper for Hestia v-delete-user.
+
+user=$1
+
+if [ -x /usr/local/bin/hestia-goaccess ] && [ -d "/etc/hestia-goaccess/domains/$user" ]; then
+	for state in /etc/hestia-goaccess/domains/"$user"/*.conf; do
+		[ -e "$state" ] || continue
+		domain=$(sed -n "s/^HG_DOMAIN='\([^']*\)'$/\1/p" "$state" | head -n 1)
+		[ -n "$domain" ] || continue
+		/usr/local/bin/hestia-goaccess disable "$user" "$domain" >/dev/null 2>&1 || true
+	done
+fi
+
+exec /usr/local/hestia/bin/v-delete-user.hestia-goaccess-original "$@"

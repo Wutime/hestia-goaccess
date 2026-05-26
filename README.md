@@ -175,7 +175,7 @@ Static mode writes:
 /usr/local/hestia/bin/v-update-web-domain-stat USER DOMAIN
 ```
 
-On a stock Hestia schedule this is commonly daily, but administrators can confirm the exact schedule in the `hestiaweb` cron entry for `v-update-sys-queue webstats`. Static mode reads the selected active Hestia domain log, so the visible history depends on the server's logrotate policy. On many Hestia installs, Nginx and Apache domain logs rotate weekly with a small number of retained rotations, but current v1 static reports read only the active log file.
+On a stock Hestia schedule this is commonly daily, but administrators can confirm the exact schedule in the `hestiaweb` cron entry for `v-update-sys-queue webstats`. Static mode uses GoAccess persistence by default with a per-domain database under `/var/lib/hestia-goaccess/USER/DOMAIN` and `GOACCESS_KEEP_LAST=90`, so reports keep a rolling 90-day dataset unless the administrator changes that default. If `GOACCESS_IGNORE_PATHS` is empty, GoAccess parses the selected Hestia log file directly for its strongest incremental tracking; otherwise hestia-goaccess filters ignored paths before passing data to GoAccess.
 
 Hestia serves that report at the existing stats URL:
 
@@ -205,8 +205,8 @@ That uninstall path:
 - removes per-domain realtime Nginx includes
 - restores wrapped Hestia stats commands
 - removes `goaccess-static` and `goaccess-realtime` from `STATS_SYSTEM`
-- removes add-on state/config and per-domain runtime directories
-- leaves generated report files in place unless the administrator removes them separately
+- removes persisted GoAccess databases, per-domain runtime directories, and generated reports known to hestia-goaccess state
+- removes add-on state/config when `--remove-state` is passed
 - does not remove the system `goaccess` package
 
 For local Docker testing, the browser sees the Hestia vhost through port `20080`, so pass an explicit WebSocket URL:
@@ -251,6 +251,7 @@ Realtime mode:
 - preselects GoAccess' shipped `darkGray` HTML theme by default
 - uses a bounded systemd stop timeout so re-enable and uninstall do not hang on stale realtime processes
 - records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`
+- stores persisted GoAccess data in `/var/lib/hestia-goaccess/USER/DOMAIN` with a default `90` day retention window
 - stops the realtime service and removes the Nginx include when Hestia switches the domain away from `goaccess-realtime`
 
 ## SSH Terminal Dashboard
