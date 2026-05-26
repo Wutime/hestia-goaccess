@@ -75,9 +75,9 @@ Current prototype behavior:
 - `hestia-goaccess enable USER DOMAIN --mode static` reads `/var/log/apache2/domains/DOMAIN.log` when present, falling back to `/var/log/nginx/domains/DOMAIN.log`.
 - Static reports are generated directly to `/home/USER/web/DOMAIN/stats/index.html`.
 - Generated report state is recorded under `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`.
-- Hestia core files and `STATS_SYSTEM` are not patched yet.
+- Hestia core dropdown integration is optional via `./install.sh --with-hestia-dropdown`.
 
-This means the first prototype is intentionally lower-risk than the final selector integration: Hestia can serve `/vstats/`, but the Edit Web Domain stats dropdown will not yet show `goaccess-static`.
+Without dropdown integration, Hestia can serve `/vstats/`, but the Edit Web Domain stats dropdown will not show `goaccess-static`. With dropdown integration enabled, `goaccess-static` is appended to `STATS_SYSTEM`, a matching Hestia stats template is installed, and `v-update-web-domain-stat` is wrapped so only `goaccess-static` dispatches to the add-on while AWStats and other future stats engines fall through to Hestia's original updater.
 
 ## GoAccess Version Policy
 

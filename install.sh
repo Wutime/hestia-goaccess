@@ -9,23 +9,27 @@ PREFIX="/usr/local"
 INSTALL_GOACCESS="yes"
 UPGRADE_GOACCESS="no"
 ASSUME_YES="no"
+WITH_DROPDOWN="no"
+ADDON_STATS_TYPE="goaccess-static"
 
 usage() {
 	cat <<'USAGE'
 hestia-goaccess installer
 
 Usage:
-  ./install.sh [--yes] [--without-goaccess] [--upgrade-goaccess] [--prefix /usr/local]
+  ./install.sh [--yes] [--without-goaccess] [--upgrade-goaccess] [--with-hestia-dropdown] [--prefix /usr/local]
 
 Options:
   --yes                Run without confirmation prompts.
   --without-goaccess   Do not install GoAccess if it is missing.
   --upgrade-goaccess   Allow the installer to upgrade an old GoAccess package.
+  --with-hestia-dropdown
+                       Register goaccess-static in Hestia's Web Statistics dropdown.
   --prefix PATH        Install the hestia-goaccess command under PATH/bin.
   -h, --help           Show this help.
 
-This installer does not patch Hestia UI files yet. It installs the CLI and
-prepares static GoAccess mode.
+By default this installer does not patch Hestia's stats dropdown. Use
+--with-hestia-dropdown to install the reversible Hestia integration.
 USAGE
 }
 
@@ -36,10 +40,6 @@ die() {
 
 info() {
 	printf '%s\n' "$*"
-}
-
-warn() {
-	printf 'warn: %s\n' "$*" >&2
 }
 
 version_ge() {
@@ -80,6 +80,9 @@ parse_args() {
 			--upgrade-goaccess)
 				UPGRADE_GOACCESS="yes"
 				;;
+			--with-hestia-dropdown)
+				WITH_DROPDOWN="yes"
+				;;
 			--prefix)
 				shift
 				PREFIX="${1:-}"
@@ -108,6 +111,18 @@ require_root() {
 require_hestia() {
 	[[ -x /usr/local/hestia/bin/v-list-sys-config ]] ||
 		die "Hestia CLI not found at /usr/local/hestia/bin"
+}
+
+backup_file() {
+	local file="$1"
+	local backup_dir="/etc/hestia-goaccess/backups"
+	local timestamp
+
+	[[ -f "${file}" ]] || die "cannot back up missing file: ${file}"
+	timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+	install -d -m 0755 "${backup_dir}"
+	cp -p "${file}" "${backup_dir}/$(basename "${file}").${timestamp}"
+	info "backup: ${backup_dir}/$(basename "${file}").${timestamp}"
 }
 
 hestia_version() {
@@ -199,6 +214,91 @@ install_files() {
 	info "configured: /etc/hestia-goaccess/defaults.conf"
 }
 
+stats_system_value() {
+	sed -n "s/^STATS_SYSTEM='\\(.*\\)'$/\\1/p" /usr/local/hestia/conf/hestia.conf |
+		head -n 1
+}
+
+stats_system_has_type() {
+	local stats="$1"
+	local type="$2"
+	local -a items
+	local item
+
+	IFS=',' read -r -a items <<< "${stats}"
+	for item in "${items[@]}"; do
+		[[ "${item}" == "${type}" ]] && return 0
+	done
+
+	return 1
+}
+
+register_stats_system_type() {
+	local conf="/usr/local/hestia/conf/hestia.conf"
+	local current
+	local updated
+	local tmp
+
+	current="$(stats_system_value)"
+	[[ -n "${current}" ]] || die "unable to read STATS_SYSTEM from ${conf}"
+	if stats_system_has_type "${current}" "${ADDON_STATS_TYPE}"; then
+		info "ok: ${ADDON_STATS_TYPE} already registered in STATS_SYSTEM"
+		return
+	fi
+
+	updated="${current},${ADDON_STATS_TYPE}"
+	tmp="$(mktemp)"
+	backup_file "${conf}"
+	awk -v updated="${updated}" '
+		/^STATS_SYSTEM='\''/ {
+			print "STATS_SYSTEM='\''" updated "'\''"
+			next
+		}
+		{ print }
+	' "${conf}" > "${tmp}"
+	cat "${tmp}" > "${conf}"
+	rm -f "${tmp}"
+	info "registered: ${ADDON_STATS_TYPE} in STATS_SYSTEM"
+}
+
+install_stats_template() {
+	local template_dir="/usr/local/hestia/data/templates/web/${ADDON_STATS_TYPE}"
+
+	install -d -m 0755 "${template_dir}"
+	install -m 0644 \
+		"${repo_root}/templates/web/${ADDON_STATS_TYPE}/${ADDON_STATS_TYPE}.tpl" \
+		"${template_dir}/${ADDON_STATS_TYPE}.tpl"
+	info "installed: ${template_dir}/${ADDON_STATS_TYPE}.tpl"
+}
+
+install_update_wrapper() {
+	local target="/usr/local/hestia/bin/v-update-web-domain-stat"
+	local original="/usr/local/hestia/bin/v-update-web-domain-stat.hestia-goaccess-original"
+
+	if grep -q 'hestia-goaccess managed wrapper' "${target}" 2>/dev/null; then
+		info "ok: v-update-web-domain-stat wrapper already installed"
+		return
+	fi
+
+	[[ -x "${target}" ]] || die "Hestia updater not found: ${target}"
+	if [[ ! -f "${original}" ]]; then
+		backup_file "${target}"
+		cp -p "${target}" "${original}"
+		info "preserved: ${original}"
+	fi
+
+	install -m 0755 "${repo_root}/patches/hestia/v-update-web-domain-stat.wrapper" "${target}"
+	info "installed: ${target} wrapper"
+}
+
+install_hestia_dropdown_integration() {
+	info "installing Hestia dropdown integration for ${ADDON_STATS_TYPE}"
+	register_stats_system_type
+	install_stats_template
+	install_update_wrapper
+	info "ok: Hestia dropdown integration installed"
+}
+
 post_install() {
 	"${PREFIX}/bin/hestia-goaccess" doctor
 
@@ -217,7 +317,8 @@ Static reports are written to:
 Hestia serves the report at:
   http://DOMAIN/vstats/
 
-Realtime mode and Hestia dropdown patching are not installed yet.
+Realtime mode is not installed yet.
+Hestia dropdown integration: ${WITH_DROPDOWN}
 POST
 }
 
@@ -232,7 +333,7 @@ hestia-goaccess installer plan:
   - verify GoAccess ${GOACCESS_MIN_VERSION}+$(if [[ "${INSTALL_GOACCESS}" == "yes" ]]; then printf ' or offer to install it'; fi)
   - install the hestia-goaccess CLI to ${PREFIX}/bin
   - create /etc/hestia-goaccess state/config directories
-  - leave Hestia core files unchanged
+  - Hestia dropdown integration: ${WITH_DROPDOWN}
 PLAN
 
 	confirm "Continue with installation?"
@@ -241,6 +342,9 @@ PLAN
 	require_supported_os
 	ensure_goaccess
 	install_files
+	if [[ "${WITH_DROPDOWN}" == "yes" ]]; then
+		install_hestia_dropdown_integration
+	fi
 	post_install
 }
 

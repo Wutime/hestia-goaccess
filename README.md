@@ -33,10 +33,16 @@ The current installer prepares static GoAccess mode without patching Hestia core
 sudo ./install.sh
 ```
 
+To also make `goaccess-static` appear in Hestia's per-domain Web Statistics dropdown:
+
+```bash
+sudo ./install.sh --with-hestia-dropdown
+```
+
 For unattended Docker/dev testing:
 
 ```bash
-sudo ./install.sh --yes
+sudo ./install.sh --yes --with-hestia-dropdown
 ```
 
 Installer behavior today:
@@ -48,7 +54,8 @@ Installer behavior today:
 - stops with a clear error if an older GoAccess is already installed, unless `--upgrade-goaccess` is passed
 - installs `hestia-goaccess` into `/usr/local/bin`
 - creates `/etc/hestia-goaccess`
-- leaves Hestia UI and core command files unchanged
+- leaves Hestia UI and core command files unchanged unless `--with-hestia-dropdown` is used
+- with `--with-hestia-dropdown`, adds `goaccess-static` to `STATS_SYSTEM`, installs a Hestia stats template, and wraps `v-update-web-domain-stat` with a backed-up fallback to Hestia's original updater
 
 After install, the CLI can run a static GoAccess report for an existing Hestia domain:
 
@@ -81,6 +88,25 @@ hestia-goaccess uninstall
 ```
 
 Realtime mode is planned as an explicit per-domain opt-in. Existing AWStats domains should only be migrated by an explicit administrator command, and the initial migration target should be static mode.
+
+## Hestia Dropdown Integration
+
+`goaccess-static` appears in Hestia's Web Statistics dropdown only after the optional dropdown integration is installed:
+
+```bash
+sudo ./install.sh --with-hestia-dropdown
+```
+
+This integration currently:
+
+- backs up Hestia files before changing them
+- appends `goaccess-static` to `/usr/local/hestia/conf/hestia.conf`
+- installs `/usr/local/hestia/data/templates/web/goaccess-static/goaccess-static.tpl`
+- wraps `/usr/local/hestia/bin/v-update-web-domain-stat`
+- preserves Hestia's original updater at `/usr/local/hestia/bin/v-update-web-domain-stat.hestia-goaccess-original`
+- runs `hestia-goaccess enable USER DOMAIN --mode static` when a domain's `STATS` value is `goaccess-static`
+
+The visible dropdown value is `goaccess-static` rather than `goaccess (static)` so v1 can avoid patching Hestia PHP UI label rendering.
 
 ## Docker Testing
 

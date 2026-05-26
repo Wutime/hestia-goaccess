@@ -4,17 +4,21 @@ set -euo pipefail
 PREFIX="/usr/local"
 ASSUME_YES="no"
 REMOVE_STATE="no"
+REMOVE_DROPDOWN="no"
+ADDON_STATS_TYPE="goaccess-static"
 
 usage() {
 	cat <<'USAGE'
 hestia-goaccess uninstaller
 
 Usage:
-  ./uninstall.sh [--yes] [--remove-state] [--prefix /usr/local]
+  ./uninstall.sh [--yes] [--remove-state] [--remove-hestia-dropdown] [--prefix /usr/local]
 
 Options:
   --yes           Run without confirmation prompts.
   --remove-state  Also remove /etc/hestia-goaccess state and config files.
+  --remove-hestia-dropdown
+                  Restore the Hestia stats updater and remove goaccess-static from STATS_SYSTEM.
   --prefix PATH   Remove the hestia-goaccess command from PATH/bin.
   -h, --help      Show this help.
 
@@ -25,6 +29,18 @@ USAGE
 die() {
 	printf 'uninstall.sh: %s\n' "$*" >&2
 	exit 1
+}
+
+backup_file() {
+	local file="$1"
+	local backup_dir="/etc/hestia-goaccess/backups"
+	local timestamp
+
+	[[ -f "${file}" ]] || return 0
+	timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+	install -d -m 0755 "${backup_dir}"
+	cp -p "${file}" "${backup_dir}/$(basename "${file}").${timestamp}"
+	printf 'backup: %s\n' "${backup_dir}/$(basename "${file}").${timestamp}"
 }
 
 confirm() {
@@ -52,6 +68,9 @@ while [[ "$#" -gt 0 ]]; do
 		--remove-state)
 			REMOVE_STATE="yes"
 			;;
+		--remove-hestia-dropdown)
+			REMOVE_DROPDOWN="yes"
+			;;
 		--prefix)
 			shift
 			PREFIX="${1:-}"
@@ -75,6 +94,61 @@ done
 [[ "${EUID}" -eq 0 ]] || die "run this uninstaller as root"
 
 confirm "Remove hestia-goaccess CLI files?"
+
+remove_dropdown_integration() {
+	local conf="/usr/local/hestia/conf/hestia.conf"
+	local target="/usr/local/hestia/bin/v-update-web-domain-stat"
+	local original="/usr/local/hestia/bin/v-update-web-domain-stat.hestia-goaccess-original"
+	local template_dir="/usr/local/hestia/data/templates/web/${ADDON_STATS_TYPE}"
+	local current
+	local updated=""
+	local -a items
+	local item
+	local tmp
+
+	if [[ -f "${original}" ]] && grep -q 'hestia-goaccess managed wrapper' "${target}" 2>/dev/null; then
+		backup_file "${target}"
+		cp -p "${original}" "${target}"
+		rm -f "${original}"
+		printf 'restored: %s\n' "${target}"
+	fi
+
+	if [[ -f "${conf}" ]]; then
+		current="$(sed -n "s/^STATS_SYSTEM='\\(.*\\)'$/\\1/p" "${conf}" | head -n 1)"
+		if [[ -n "${current}" ]]; then
+			IFS=',' read -r -a items <<< "${current}"
+			for item in "${items[@]}"; do
+				[[ "${item}" == "${ADDON_STATS_TYPE}" ]] && continue
+				if [[ -z "${updated}" ]]; then
+					updated="${item}"
+				else
+					updated="${updated},${item}"
+				fi
+			done
+			if [[ "${updated}" != "${current}" ]]; then
+				tmp="$(mktemp)"
+				backup_file "${conf}"
+				awk -v updated="${updated}" '
+					/^STATS_SYSTEM='\''/ {
+						print "STATS_SYSTEM='\''" updated "'\''"
+						next
+					}
+					{ print }
+				' "${conf}" > "${tmp}"
+				cat "${tmp}" > "${conf}"
+				rm -f "${tmp}"
+				printf 'updated: %s\n' "${conf}"
+			fi
+		fi
+	fi
+
+	rm -rf "${template_dir}"
+	printf 'removed: %s\n' "${template_dir}"
+}
+
+if [[ "${REMOVE_DROPDOWN}" == "yes" ]]; then
+	remove_dropdown_integration
+fi
 
 rm -f "${PREFIX}/bin/hestia-goaccess"
 rm -rf "${PREFIX}/share/hestia-goaccess"

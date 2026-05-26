@@ -267,12 +267,13 @@ Then open `https://panel.hestia-goaccess.localhost:8083/` with dev credentials `
 
 Current static prototype:
 - `./install.sh [--yes] [--without-goaccess] [--upgrade-goaccess]`
+- `./install.sh --with-hestia-dropdown`
 - `hestia-goaccess doctor [USER DOMAIN]`
 - `hestia-goaccess enable USER DOMAIN --mode static`
 - `hestia-goaccess status [USER DOMAIN]`
 - `hestia-goaccess disable USER DOMAIN`
 
-Static prototype behavior writes `/home/USER/web/DOMAIN/stats/index.html` and records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`. It does not patch Hestia core files or add `goaccess-static` to `STATS_SYSTEM` yet.
+Static prototype behavior writes `/home/USER/web/DOMAIN/stats/index.html` and records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`.
 
 Installer prototype behavior:
 - requires root
@@ -283,7 +284,17 @@ Installer prototype behavior:
 - refuses an existing older GoAccess unless `--upgrade-goaccess` is explicit
 - installs the CLI to `/usr/local/bin/hestia-goaccess`
 - writes defaults to `/etc/hestia-goaccess/defaults.conf`
-- leaves Hestia core/UI files unchanged
+- leaves Hestia core/UI files unchanged unless `--with-hestia-dropdown` is used
+
+Optional dropdown integration behavior:
+- appends `goaccess-static` to `/usr/local/hestia/conf/hestia.conf` `STATS_SYSTEM`
+- installs `/usr/local/hestia/data/templates/web/goaccess-static/goaccess-static.tpl`
+- wraps `/usr/local/hestia/bin/v-update-web-domain-stat`
+- stores the original updater at `/usr/local/hestia/bin/v-update-web-domain-stat.hestia-goaccess-original`
+- stores timestamped backups under `/etc/hestia-goaccess/backups`
+- dispatches only `STATS='goaccess-static'` to `/usr/local/bin/hestia-goaccess enable USER DOMAIN --mode static`
+- falls through all other stats types to Hestia's original updater
+- does not patch Hestia PHP UI labels; the dropdown value is `goaccess-static`
 
 Primary production target profile:
 - Ubuntu 22.04.5 LTS

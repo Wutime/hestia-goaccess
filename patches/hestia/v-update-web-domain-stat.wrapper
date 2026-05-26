@@ -1,0 +1,44 @@
+#!/bin/bash
+# hestia-goaccess managed wrapper for Hestia v-update-web-domain-stat.
+
+user=$1
+domain=$2
+# shellcheck disable=SC2034
+domain_idn=$2
+
+# shellcheck source=/etc/hestiacp/hestia.conf
+# shellcheck disable=SC1091
+source /etc/hestiacp/hestia.conf
+# shellcheck disable=SC1091
+source "$HESTIA/func/main.sh"
+# shellcheck disable=SC1091
+source "$HESTIA/func/domain.sh"
+source_conf "$HESTIA/conf/hestia.conf"
+
+format_domain
+format_domain_idn
+
+check_args '2' "$#" 'USER DOMAIN'
+is_format_valid 'user' 'domain'
+is_system_enabled "$WEB_SYSTEM" 'WEB_SYSTEM'
+is_object_valid 'user' 'USER' "$user"
+is_object_unsuspended 'user' 'USER' "$user"
+is_object_valid 'web' 'DOMAIN' "$domain"
+is_object_unsuspended 'web' 'DOMAIN' "$domain"
+# shellcheck disable=SC2016
+is_object_value_exist 'web' 'DOMAIN' "$domain" '$STATS'
+
+get_domain_values 'web'
+
+case "$STATS" in
+	goaccess-static)
+		config="$HOMEDIR/$user/conf/web/$domain/$STATS.conf"
+		if [ ! -e "$config" ]; then
+			check_result "$E_NOTEXISTS" "$config doesn't exist"
+		fi
+		exec /usr/local/bin/hestia-goaccess enable "$user" "$domain" --mode static
+		;;
+	*)
+		exec "$BIN/v-update-web-domain-stat.hestia-goaccess-original" "$user" "$domain"
+		;;
+esac
