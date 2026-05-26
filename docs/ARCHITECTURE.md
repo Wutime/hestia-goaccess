@@ -69,6 +69,16 @@ Static mode should support Nginx-only and Nginx-plus-Apache Hestia layouts first
 
 Static mode is also the initial migration target for existing AWStats domains. Any bulk migration command should require an explicit admin action, such as `hestia-goaccess migrate-awstats --all --mode static`, and should not silently convert domains during install.
 
+Current prototype behavior:
+
+- `hestia-goaccess doctor [USER DOMAIN]` checks Hestia `1.9.4+`, GoAccess `1.10.2+`, domain existence, stats directory, and readable access log.
+- `hestia-goaccess enable USER DOMAIN --mode static` reads `/var/log/apache2/domains/DOMAIN.log` when present, falling back to `/var/log/nginx/domains/DOMAIN.log`.
+- Static reports are generated directly to `/home/USER/web/DOMAIN/stats/index.html`.
+- Generated report state is recorded under `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`.
+- Hestia core files and `STATS_SYSTEM` are not patched yet.
+
+This means the first prototype is intentionally lower-risk than the final selector integration: Hestia can serve `/vstats/`, but the Edit Web Domain stats dropdown will not yet show `goaccess-static`.
+
 ## GoAccess Version Policy
 
 The v1 baseline is GoAccess `1.10.2` or newer. The installer and `doctor` command should:

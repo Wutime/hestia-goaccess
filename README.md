@@ -6,7 +6,7 @@ The goal is to give Hestia administrators a privacy-friendly alternative to AWSt
 
 ## Status
 
-This project is in the research and skeleton phase. Do not install it on a production Hestia server yet.
+This project is in early prototype development. Do not install it on a production Hestia server yet.
 
 Current target:
 
@@ -25,15 +25,34 @@ Current target:
 - Detect unsupported server layouts before making changes.
 - Make install, repair, and uninstall operations idempotent and reversible.
 
-## Planned Commands
+## Prototype Commands
+
+The current CLI can run a static GoAccess report for an existing Hestia domain without patching Hestia core files:
+
+```bash
+hestia-goaccess doctor [USER DOMAIN]
+hestia-goaccess enable USER DOMAIN --mode static
+hestia-goaccess disable USER DOMAIN
+hestia-goaccess status [USER DOMAIN]
+```
+
+Static mode writes:
+
+```text
+/home/USER/web/DOMAIN/stats/index.html
+```
+
+Hestia serves that report at the existing stats URL:
+
+```text
+http://DOMAIN/vstats/
+```
+
+Planned commands:
 
 ```bash
 hestia-goaccess install
-hestia-goaccess enable USER DOMAIN --mode static
 hestia-goaccess enable USER DOMAIN --mode realtime
-hestia-goaccess disable USER DOMAIN
-hestia-goaccess status
-hestia-goaccess doctor
 hestia-goaccess repair
 hestia-goaccess migrate-awstats --all --mode static
 hestia-goaccess uninstall
@@ -82,6 +101,8 @@ https://panel.hestia-goaccess.localhost:8083/
 ```
 
 The Hestia profile installs Hestia at runtime inside the container filesystem. Restarting the container preserves the installed panel, while recreating it gives you a fresh pretend VPS and requires rerunning the installer. Use the `panel.hestia-goaccess.localhost` hostname for the Hestia panel so Hestia's CSRF checks, cookies, and local certificate hostname all line up.
+
+The Hestia Docker installer installs GoAccess from the official GoAccess Debian repository by default for local static report testing. Set `HESTIA_INSTALL_GOACCESS=no` when testing missing-dependency behavior.
 
 The default development target should mirror the maintainer's production Hestia server where possible. Use `scripts/collect-hestia-inventory.sh` for read-only inventory before changing production systems.
 

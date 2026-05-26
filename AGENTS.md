@@ -265,6 +265,14 @@ docker compose exec hestia-vps scripts/hestia-vps-install.sh
 
 Then open `https://panel.hestia-goaccess.localhost:8083/` with dev credentials `admin` / `admin`. This profile is heavier and may expose Docker Desktop/systemd limitations; keep it separate from the fast fixture service. The browser hostnames `hestia-goaccess.localhost` and `panel.hestia-goaccess.localhost` should point to `127.0.0.1` in local `/etc/hosts`; the container's internal Hestia hostname is `panel.hestia-goaccess.localhost` because Hestia requires a hostname with at least two dots. Use the `panel...` hostname and port `8083` for the Hestia panel so CSRF checks, cookies, and local certificate hostname all line up. Hestia is installed at runtime inside the container filesystem, so container restart preserves the panel but container recreation gives a fresh pretend VPS and requires rerunning the installer.
 
+Current static prototype:
+- `hestia-goaccess doctor [USER DOMAIN]`
+- `hestia-goaccess enable USER DOMAIN --mode static`
+- `hestia-goaccess status [USER DOMAIN]`
+- `hestia-goaccess disable USER DOMAIN`
+
+Static prototype behavior writes `/home/USER/web/DOMAIN/stats/index.html` and records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`. It does not patch Hestia core files or add `goaccess-static` to `STATS_SYSTEM` yet.
+
 Primary production target profile:
 - Ubuntu 22.04.5 LTS
 - Nginx public frontend with Apache backend active

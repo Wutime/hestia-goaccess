@@ -1,30 +1,381 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${repo_root}/conf/defaults.conf"
+
+HESTIA_BIN="${HESTIA_BIN:-/usr/local/hestia/bin}"
+HESTIA_DATA="${HESTIA_DATA:-/usr/local/hestia/data}"
+STATE_DIR="${HESTIA_GOACCESS_STATE_DIR:-/etc/hestia-goaccess}"
+STATE_DOMAIN_DIR="${STATE_DIR}/domains"
+
 usage() {
 	cat <<'USAGE'
 hestia-goaccess
 
-Planned commands:
-  install
-  enable USER DOMAIN --mode static|realtime
+Commands:
+  doctor [USER DOMAIN]
+  enable USER DOMAIN --mode static
   disable USER DOMAIN
-  status
-  doctor
-  repair
-  migrate-awstats --all --mode static
-  uninstall
+  status [USER DOMAIN]
+  help
 
-This CLI is a placeholder while the project skeleton and test harness are built.
+Realtime mode is planned but not implemented yet.
 USAGE
 }
 
-case "${1:-}" in
-	""|-h|--help|help)
-		usage
-		;;
-	*)
-		echo "hestia-goaccess: command is not implemented yet: $1" >&2
-		exit 1
-		;;
-esac
+die() {
+	printf 'hestia-goaccess: %s\n' "$*" >&2
+	exit 1
+}
+
+info() {
+	printf '%s\n' "$*"
+}
+
+version_ge() {
+	local current="$1"
+	local minimum="$2"
+	local first
+
+	first="$(printf '%s\n%s\n' "${minimum}" "${current}" | sort -V | head -n 1)"
+	[[ "${first}" == "${minimum}" ]]
+}
+
+validate_user() {
+	[[ "${1:-}" =~ ^[A-Za-z0-9._-]+$ ]] || die "invalid Hestia user: ${1:-}"
+}
+
+validate_domain() {
+	[[ "${1:-}" =~ ^[A-Za-z0-9._-]+$ ]] || die "invalid domain: ${1:-}"
+}
+
+require_hestia() {
+	[[ -x "${HESTIA_BIN}/v-list-sys-config" ]] || die "Hestia CLI not found at ${HESTIA_BIN}"
+}
+
+require_goaccess() {
+	local version
+
+	if ! command -v goaccess >/dev/null 2>&1; then
+		die "goaccess is not installed; minimum required version is ${GOACCESS_MIN_VERSION}"
+	fi
+
+	version="$(goaccess --version | sed -n 's/^GoAccess - \([0-9][0-9.]*[0-9]\).*/\1/p' | head -n 1)"
+	[[ -n "${version}" ]] || die "unable to determine goaccess version"
+
+	if ! version_ge "${version}" "${GOACCESS_MIN_VERSION}"; then
+		die "goaccess ${version} is too old; minimum required version is ${GOACCESS_MIN_VERSION}"
+	fi
+}
+
+hestia_version() {
+	"${HESTIA_BIN}/v-list-sys-config" json |
+		sed -n 's/.*"VERSION": "\([^"]*\)".*/\1/p' |
+		head -n 1
+}
+
+require_hestia_version() {
+	local version
+
+	version="$(hestia_version)"
+	[[ -n "${version}" ]] || die "unable to determine Hestia version"
+	if ! version_ge "${version}" "1.9.4"; then
+		die "Hestia ${version} is too old; minimum supported version is 1.9.4"
+	fi
+}
+
+domain_line() {
+	local user="$1"
+	local domain="$2"
+	local web_conf="${HESTIA_DATA}/users/${user}/web.conf"
+	local line
+
+	[[ -f "${web_conf}" ]] || return 1
+	while IFS= read -r line; do
+		case "${line}" in
+			"DOMAIN='${domain}' "*) printf '%s\n' "${line}"; return 0 ;;
+		esac
+	done < "${web_conf}"
+
+	return 1
+}
+
+domain_field() {
+	local line="$1"
+	local field="$2"
+
+	printf '%s\n' "${line}" |
+		sed -n "s/.* ${field}='\\([^']*\\)'.*/\\1/p"
+}
+
+require_domain() {
+	local user="$1"
+	local domain="$2"
+
+	validate_user "${user}"
+	validate_domain "${domain}"
+	require_hestia
+
+	domain_line "${user}" "${domain}" >/dev/null ||
+		die "domain ${domain} was not found for Hestia user ${user}"
+}
+
+domain_stats_path() {
+	local user="$1"
+	local domain="$2"
+
+	printf '/home/%s/web/%s/stats\n' "${user}" "${domain}"
+}
+
+domain_log_path() {
+	local domain="$1"
+	local apache_log="/var/log/apache2/domains/${domain}.log"
+	local nginx_log="/var/log/nginx/domains/${domain}.log"
+
+	if [[ -f "${apache_log}" ]]; then
+		printf '%s\n' "${apache_log}"
+	elif [[ -f "${nginx_log}" ]]; then
+		printf '%s\n' "${nginx_log}"
+	else
+		printf '%s\n' "${apache_log}"
+	fi
+}
+
+state_file() {
+	local user="$1"
+	local domain="$2"
+
+	printf '%s/%s/%s.conf\n' "${STATE_DOMAIN_DIR}" "${user}" "${domain}"
+}
+
+write_state() {
+	local user="$1"
+	local domain="$2"
+	local mode="$3"
+	local log_path="$4"
+	local report_path="$5"
+	local file
+
+	file="$(state_file "${user}" "${domain}")"
+	install -d -m 0755 "$(dirname "${file}")"
+	cat > "${file}" <<STATE
+HG_USER='${user}'
+HG_DOMAIN='${domain}'
+HG_MODE='${mode}'
+HG_LOG_PATH='${log_path}'
+HG_REPORT_PATH='${report_path}'
+HG_UPDATED_AT='$(date -u +%Y-%m-%dT%H:%M:%SZ)'
+STATE
+	chmod 0644 "${file}"
+}
+
+doctor() {
+	local user="${1:-}"
+	local domain="${2:-}"
+	local version
+	local line
+	local stats
+	local log_path
+	local stats_path
+
+	require_hestia
+	require_hestia_version
+	version="$(hestia_version)"
+	info "ok: Hestia ${version}"
+
+	require_goaccess
+	info "ok: $(goaccess --version | head -n 1)"
+
+	if [[ -n "${user}" || -n "${domain}" ]]; then
+		[[ -n "${user}" && -n "${domain}" ]] || die "doctor requires both USER and DOMAIN when checking a domain"
+		require_domain "${user}" "${domain}"
+		line="$(domain_line "${user}" "${domain}")"
+		stats="$(domain_field "${line}" "STATS")"
+		log_path="$(domain_log_path "${domain}")"
+		stats_path="$(domain_stats_path "${user}" "${domain}")"
+
+		info "ok: domain ${user}/${domain} exists"
+		info "info: Hestia STATS='${stats}'"
+
+		[[ -d "${stats_path}" ]] || die "stats directory does not exist: ${stats_path}"
+		info "ok: stats directory ${stats_path}"
+
+		[[ -f "${log_path}" ]] || die "access log does not exist: ${log_path}"
+		[[ -r "${log_path}" ]] || die "access log is not readable: ${log_path}"
+		info "ok: access log ${log_path}"
+		if [[ ! -s "${log_path}" ]]; then
+			info "warn: access log is empty; static report generation will not be useful yet"
+		fi
+	fi
+}
+
+enable_static() {
+	local user="$1"
+	local domain="$2"
+	local log_path
+	local stats_path
+	local report_path
+	local tmp_report
+	local title
+
+	require_domain "${user}" "${domain}"
+	require_hestia_version
+	require_goaccess
+
+	log_path="$(domain_log_path "${domain}")"
+	stats_path="$(domain_stats_path "${user}" "${domain}")"
+	report_path="${stats_path}/index.html"
+	tmp_report="${report_path}.$$.html"
+	title="${domain} GoAccess"
+
+	[[ -f "${log_path}" ]] || die "access log does not exist: ${log_path}"
+	[[ -r "${log_path}" ]] || die "access log is not readable: ${log_path}"
+	install -d -m 0755 -o "${user}" -g "${user}" "${stats_path}"
+
+	goaccess "${log_path}" \
+		--log-format=COMBINED \
+		--anonymize-ip \
+		--no-query-string \
+		--ignore-crawlers \
+		--html-report-title="${title}" \
+		--output="${tmp_report}"
+
+	mv "${tmp_report}" "${report_path}"
+	chown "${user}:${user}" "${report_path}"
+	chmod 0644 "${report_path}"
+	write_state "${user}" "${domain}" "static" "${log_path}" "${report_path}"
+
+	info "enabled static GoAccess report for ${user}/${domain}"
+	info "report: ${report_path}"
+	info "url: /vstats/"
+}
+
+status_one() {
+	local user="$1"
+	local domain="$2"
+	local line
+	local stats
+	local file
+	local mode="disabled"
+	local HG_MODE=""
+	local MODE=""
+
+	require_domain "${user}" "${domain}"
+	line="$(domain_line "${user}" "${domain}")"
+	stats="$(domain_field "${line}" "STATS")"
+	file="$(state_file "${user}" "${domain}")"
+
+	if [[ -f "${file}" ]]; then
+		# shellcheck disable=SC1090
+		source "${file}"
+		mode="${HG_MODE:-${MODE:-unknown}}"
+	fi
+
+	info "${user}/${domain}: mode=${mode} hestia_stats='${stats}'"
+}
+
+status_all() {
+	local file
+	local found="no"
+	local DOMAIN=""
+	local HG_DOMAIN=""
+	local HG_MODE=""
+	local HG_REPORT_PATH=""
+	local HG_USER=""
+	local MODE=""
+	local REPORT_PATH=""
+
+	if [[ -d "${STATE_DOMAIN_DIR}" ]]; then
+		while IFS= read -r file; do
+			found="yes"
+			# shellcheck disable=SC1090
+			source "${file}"
+			info "${HG_USER:-${USER}}/${HG_DOMAIN:-${DOMAIN}}: mode=${HG_MODE:-${MODE}} report=${HG_REPORT_PATH:-${REPORT_PATH}}"
+		done < <(find "${STATE_DOMAIN_DIR}" -type f -name '*.conf' | sort)
+	fi
+
+	[[ "${found}" == "yes" ]] || info "no hestia-goaccess domains enabled"
+}
+
+disable_domain() {
+	local user="$1"
+	local domain="$2"
+	local file
+
+	require_domain "${user}" "${domain}"
+	file="$(state_file "${user}" "${domain}")"
+	if [[ -f "${file}" ]]; then
+		rm -f "${file}"
+		info "disabled hestia-goaccess state for ${user}/${domain}"
+	else
+		info "${user}/${domain} is not enabled in hestia-goaccess state"
+	fi
+	info "existing reports are left in place; remove the stats index manually if needed"
+}
+
+parse_mode() {
+	local mode=""
+
+	while [[ "$#" -gt 0 ]]; do
+		case "$1" in
+			--mode)
+				shift
+				mode="${1:-}"
+				;;
+			--mode=*)
+				mode="${1#--mode=}"
+				;;
+			*)
+				die "unknown enable option: $1"
+				;;
+		esac
+		shift
+	done
+
+	[[ -n "${mode}" ]] || die "enable requires --mode static"
+	[[ "${mode}" == "static" ]] || die "mode ${mode} is not implemented yet"
+	printf '%s\n' "${mode}"
+}
+
+main() {
+	local command="${1:-help}"
+	local mode
+
+	case "${command}" in
+		""|-h|--help|help)
+			usage
+			;;
+		doctor)
+			shift
+			doctor "$@"
+			;;
+		enable)
+			shift
+			[[ "$#" -ge 3 ]] || die "usage: hestia-goaccess enable USER DOMAIN --mode static"
+			mode="$(parse_mode "${@:3}")"
+			case "${mode}" in
+				static) enable_static "$1" "$2" ;;
+			esac
+			;;
+		disable)
+			shift
+			[[ "$#" -eq 2 ]] || die "usage: hestia-goaccess disable USER DOMAIN"
+			disable_domain "$1" "$2"
+			;;
+		status)
+			shift
+			case "$#" in
+				0) status_all ;;
+				2) status_one "$1" "$2" ;;
+				*) die "usage: hestia-goaccess status [USER DOMAIN]" ;;
+			esac
+			;;
+		*)
+			die "unknown command: ${command}"
+			;;
+	esac
+}
+
+main "$@"

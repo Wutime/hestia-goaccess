@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 admin_user="${HESTIA_ADMIN_USER:-admin}"
 admin_password="${HESTIA_ADMIN_PASSWORD:-admin}"
 hostname="${HESTIA_HOSTNAME:-panel.hestia-goaccess.localhost}"
 email="${HESTIA_EMAIL:-admin@example.test}"
+install_goaccess="${HESTIA_INSTALL_GOACCESS:-yes}"
 
 if [[ -x /usr/local/hestia/bin/v-list-web-stats ]]; then
 	echo "Hestia already appears to be installed."
 	/usr/local/hestia/bin/v-list-web-stats plain || true
+	if [[ "${install_goaccess}" == "yes" ]]; then
+		"${repo_root}/scripts/install-goaccess-debian.sh"
+	fi
 	exit 0
 fi
 
@@ -49,6 +54,10 @@ bash /root/hst-install.sh \
 	--api yes \
 	--interactive no \
 	--force
+
+if [[ "${install_goaccess}" == "yes" ]]; then
+	"${repo_root}/scripts/install-goaccess-debian.sh"
+fi
 
 cat <<INFO
 

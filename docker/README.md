@@ -95,6 +95,8 @@ Install Hestia inside it:
 docker compose exec hestia-vps scripts/hestia-vps-install.sh
 ```
 
+The installer also installs GoAccess from the official GoAccess Debian repository by default, so the pretend VPS is ready for static report tests. Set `HESTIA_INSTALL_GOACCESS=no` to keep the container in a missing-GoAccess state for dependency checks.
+
 Panel URL:
 
 ```text
