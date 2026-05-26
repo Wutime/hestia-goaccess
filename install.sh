@@ -208,6 +208,7 @@ install_files() {
 	install -m 0644 "${repo_root}/conf/defaults.conf" /etc/hestia-goaccess/defaults.conf
 	install -m 0644 "${repo_root}/conf/defaults.conf" "${share_dir}/conf/defaults.conf"
 	install -m 0755 "${repo_root}/scripts/check-goaccess-version.sh" "${share_dir}/scripts/check-goaccess-version.sh"
+	install -m 0755 "${repo_root}/scripts/hestia-goaccess-filter-log" "${share_dir}/scripts/hestia-goaccess-filter-log"
 	install -m 0755 "${repo_root}/scripts/install-goaccess-debian.sh" "${share_dir}/scripts/install-goaccess-debian.sh"
 
 	info "installed: ${PREFIX}/bin/hestia-goaccess"

@@ -14,6 +14,7 @@ bash -n "${repo_root}/install.sh"
 bash -n "${repo_root}/uninstall.sh"
 bash -n "${repo_root}/bin/hestia-goaccess"
 bash -n "${repo_root}/scripts/check-goaccess-version.sh"
+bash -n "${repo_root}/scripts/hestia-goaccess-filter-log"
 bash -n "${repo_root}/scripts/install-goaccess-debian.sh"
 bash -n "${repo_root}/patches/hestia/v-update-web-domain-stat.wrapper"
 
@@ -23,6 +24,7 @@ if command -v shellcheck >/dev/null 2>&1; then
 		"${repo_root}/uninstall.sh" \
 		"${repo_root}/bin/hestia-goaccess" \
 		"${repo_root}/scripts/check-goaccess-version.sh" \
+		"${repo_root}/scripts/hestia-goaccess-filter-log" \
 		"${repo_root}/scripts/install-goaccess-debian.sh" \
 		"${repo_root}/patches/hestia/v-update-web-domain-stat.wrapper" \
 		"${BASH_SOURCE[0]}"

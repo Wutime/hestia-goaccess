@@ -24,6 +24,13 @@ STATE_DIR="${HESTIA_GOACCESS_STATE_DIR:-/etc/hestia-goaccess}"
 STATE_DOMAIN_DIR="${STATE_DIR}/domains"
 GOACCESS_DB_DIR="${HESTIA_GOACCESS_DB_DIR:-/var/lib/hestia-goaccess}"
 GOACCESS_RUN_DIR="${HESTIA_GOACCESS_RUN_DIR:-/run/hestia-goaccess}"
+if [[ -x "${repo_root}/scripts/hestia-goaccess-filter-log" ]]; then
+	DEFAULT_GOACCESS_FILTER_LOG="${repo_root}/scripts/hestia-goaccess-filter-log"
+else
+	DEFAULT_GOACCESS_FILTER_LOG="/usr/local/share/hestia-goaccess/scripts/hestia-goaccess-filter-log"
+fi
+GOACCESS_FILTER_LOG="${HESTIA_GOACCESS_FILTER_LOG:-${GOACCESS_FILTER_LOG:-${DEFAULT_GOACCESS_FILTER_LOG}}}"
+GOACCESS_IGNORE_PATHS="${HESTIA_GOACCESS_IGNORE_PATHS:-${GOACCESS_IGNORE_PATHS:-/vstats/}}"
 GOACCESS_REALTIME_BIND="${GOACCESS_REALTIME_BIND:-127.0.0.1}"
 GOACCESS_REALTIME_WS_PATH="${GOACCESS_REALTIME_WS_PATH:-/vstats/ws/}"
 
@@ -33,8 +40,8 @@ hestia-goaccess
 
 Commands:
   doctor [USER DOMAIN]
-  enable USER DOMAIN --mode static
-  enable USER DOMAIN --mode realtime [--ws-url URL]
+  enable USER DOMAIN --mode static [--ignore-paths PATHS]
+  enable USER DOMAIN --mode realtime [--ws-url URL] [--ignore-paths PATHS]
   disable USER DOMAIN
   status [USER DOMAIN]
   help
@@ -86,6 +93,10 @@ require_goaccess() {
 	if ! version_ge "${version}" "${GOACCESS_MIN_VERSION}"; then
 		die "goaccess ${version} is too old; minimum required version is ${GOACCESS_MIN_VERSION}"
 	fi
+}
+
+require_filter_log() {
+	[[ -x "${GOACCESS_FILTER_LOG}" ]] || die "log filter not found or not executable: ${GOACCESS_FILTER_LOG}"
 }
 
 hestia_version() {
@@ -205,6 +216,7 @@ write_state() {
 	local port="${6:-}"
 	local ws_url="${7:-}"
 	local unit="${8:-}"
+	local ignore_paths="${9:-${GOACCESS_IGNORE_PATHS}}"
 	local file
 
 	file="$(state_file "${user}" "${domain}")"
@@ -218,6 +230,7 @@ HG_REPORT_PATH='${report_path}'
 HG_PORT='${port}'
 HG_WS_URL='${ws_url}'
 HG_UNIT='${unit}'
+HG_IGNORE_PATHS='${ignore_paths}'
 HG_UPDATED_AT='$(date -u +%Y-%m-%dT%H:%M:%SZ)'
 STATE
 	chmod 0644 "${file}"
@@ -279,10 +292,12 @@ enable_static() {
 	local report_path
 	local tmp_report
 	local title
+	local ignore_paths="${ENABLE_IGNORE_PATHS:-${GOACCESS_IGNORE_PATHS}}"
 
 	require_domain "${user}" "${domain}"
 	require_hestia_version
 	require_goaccess
+	require_filter_log
 
 	log_path="$(domain_log_path "${domain}")"
 	stats_path="$(domain_stats_path "${user}" "${domain}")"
@@ -294,19 +309,20 @@ enable_static() {
 	[[ -r "${log_path}" ]] || die "access log is not readable: ${log_path}"
 	install -d -m 0755 -o "${user}" -g "${user}" "${stats_path}"
 
-	goaccess "${log_path}" \
-		--log-format=COMBINED \
-		--anonymize-ip \
-		--no-query-string \
-		--ignore-crawlers \
-		--html-report-title="${title}" \
-		--output="${tmp_report}"
+	HESTIA_GOACCESS_IGNORE_PATHS="${ignore_paths}" "${GOACCESS_FILTER_LOG}" "${log_path}" |
+		goaccess - \
+			--log-format=COMBINED \
+			--anonymize-ip \
+			--no-query-string \
+			--ignore-crawlers \
+			--html-report-title="${title}" \
+			--output="${tmp_report}"
 
 	mv "${tmp_report}" "${report_path}"
 	chown "${user}:${user}" "${report_path}"
 	chmod 0644 "${report_path}"
 	stop_realtime_if_present "${user}" "${domain}"
-	write_state "${user}" "${domain}" "static" "${log_path}" "${report_path}"
+	write_state "${user}" "${domain}" "static" "${log_path}" "${report_path}" "" "" "" "${ignore_paths}"
 
 	info "enabled static GoAccess report for ${user}/${domain}"
 	info "report: ${report_path}"
@@ -436,6 +452,7 @@ write_realtime_service() {
 	local unit_path="/etc/systemd/system/${unit}"
 	local db_path="${GOACCESS_DB_DIR}/${user}/${domain}"
 	local run_path="${GOACCESS_RUN_DIR}/${user}/${domain}"
+	local ignore_paths="${ENABLE_IGNORE_PATHS:-${GOACCESS_IGNORE_PATHS}}"
 
 	install -d -m 0755 -o "${user}" -g "${user}" "$(dirname "${report_path}")"
 	if [[ -f "${report_path}" ]]; then
@@ -453,7 +470,8 @@ Type=simple
 User=${user}
 Group=${user}
 WorkingDirectory=/home/${user}
-ExecStart=/usr/bin/goaccess ${log_path} --log-format=COMBINED --real-time-html --output=${report_path} --addr=${GOACCESS_REALTIME_BIND} --port=${port} --ws-url=${ws_url} --persist --restore --db-path=${db_path} --anonymize-ip --no-query-string --ignore-crawlers --html-report-title=${domain}\ GoAccess\ Realtime --no-progress
+Environment="HESTIA_GOACCESS_IGNORE_PATHS=${ignore_paths}"
+ExecStart=/bin/bash -c 'exec "\$1" --follow "\$2" | /usr/bin/goaccess - --log-format=COMBINED --real-time-html --output="\$3" --addr="\$4" --port="\$5" --ws-url="\$6" --anonymize-ip --no-query-string --ignore-crawlers --html-report-title="\$7 GoAccess Realtime" --no-progress' bash ${GOACCESS_FILTER_LOG} ${log_path} ${report_path} ${GOACCESS_REALTIME_BIND} ${port} ${ws_url} ${domain}
 Restart=on-failure
 RestartSec=5s
 Nice=10
@@ -494,10 +512,12 @@ enable_realtime() {
 	local report_path
 	local port
 	local unit
+	local ignore_paths="${ENABLE_IGNORE_PATHS:-${GOACCESS_IGNORE_PATHS}}"
 
 	require_domain "${user}" "${domain}"
 	require_hestia_version
 	require_goaccess
+	require_filter_log
 	command -v systemctl >/dev/null 2>&1 || die "systemctl is required for realtime mode"
 	command -v nginx >/dev/null 2>&1 || die "nginx is required for realtime WebSocket proxying"
 	command -v ss >/dev/null 2>&1 || die "ss is required for realtime port allocation"
@@ -517,13 +537,14 @@ enable_realtime() {
 	write_realtime_service "${user}" "${domain}" "${log_path}" "${report_path}" "${port}" "${ws_url}" "${unit}"
 	systemctl daemon-reload
 	systemctl enable --now "${unit}"
-	write_state "${user}" "${domain}" "realtime" "${log_path}" "${report_path}" "${port}" "${ws_url}" "${unit}"
+	write_state "${user}" "${domain}" "realtime" "${log_path}" "${report_path}" "${port}" "${ws_url}" "${unit}" "${ignore_paths}"
 
 	info "enabled realtime GoAccess report for ${user}/${domain}"
 	info "report: ${report_path}"
 	info "url: /vstats/"
 	info "websocket: ${ws_url}"
 	info "service: ${unit}"
+	info "ignored paths: ${ignore_paths}"
 }
 
 status_one() {
@@ -535,6 +556,7 @@ status_one() {
 	local port=""
 	local unit=""
 	local ws_url=""
+	local ignore_paths=""
 	local mode="disabled"
 	local HG_MODE=""
 	local MODE=""
@@ -551,11 +573,15 @@ status_one() {
 		port="${HG_PORT:-}"
 		unit="${HG_UNIT:-}"
 		ws_url="${HG_WS_URL:-}"
+		ignore_paths="${HG_IGNORE_PATHS:-}"
 	fi
 
 	info "${user}/${domain}: mode=${mode} hestia_stats='${stats}'"
 	if [[ -n "${port}" || -n "${unit}" || -n "${ws_url}" ]]; then
 		info "  realtime_port='${port}' service='${unit}' ws_url='${ws_url}'"
+	fi
+	if [[ -n "${ignore_paths}" ]]; then
+		info "  ignore_paths='${ignore_paths}'"
 	fi
 }
 
@@ -570,6 +596,7 @@ status_all() {
 	local HG_UNIT=""
 	local HG_USER=""
 	local HG_WS_URL=""
+	local HG_IGNORE_PATHS=""
 	local MODE=""
 	local REPORT_PATH=""
 
@@ -578,7 +605,7 @@ status_all() {
 			found="yes"
 			# shellcheck disable=SC1090
 			source "${file}"
-			info "${HG_USER:-${USER}}/${HG_DOMAIN:-${DOMAIN}}: mode=${HG_MODE:-${MODE}} report=${HG_REPORT_PATH:-${REPORT_PATH}} port=${HG_PORT} service=${HG_UNIT} ws_url=${HG_WS_URL}"
+			info "${HG_USER:-${USER}}/${HG_DOMAIN:-${DOMAIN}}: mode=${HG_MODE:-${MODE}} report=${HG_REPORT_PATH:-${REPORT_PATH}} port=${HG_PORT} service=${HG_UNIT} ws_url=${HG_WS_URL} ignore_paths=${HG_IGNORE_PATHS}"
 		done < <(find "${STATE_DOMAIN_DIR}" -type f -name '*.conf' | sort)
 	fi
 
@@ -604,6 +631,7 @@ disable_domain() {
 
 parse_enable_options() {
 	ENABLE_MODE=""
+	ENABLE_IGNORE_PATHS="${GOACCESS_IGNORE_PATHS}"
 	WS_URL=""
 
 	while [[ "$#" -gt 0 ]]; do
@@ -622,6 +650,13 @@ parse_enable_options() {
 			--ws-url=*)
 				WS_URL="${1#--ws-url=}"
 				;;
+			--ignore-paths)
+				shift
+				ENABLE_IGNORE_PATHS="${1:-}"
+				;;
+			--ignore-paths=*)
+				ENABLE_IGNORE_PATHS="${1#--ignore-paths=}"
+				;;
 			*)
 				die "unknown enable option: $1"
 				;;
@@ -631,6 +666,7 @@ parse_enable_options() {
 
 	[[ -n "${ENABLE_MODE}" ]] || die "enable requires --mode static or --mode realtime"
 	[[ "${ENABLE_MODE}" == "static" || "${ENABLE_MODE}" == "realtime" ]] || die "mode ${ENABLE_MODE} is not implemented yet"
+	[[ -n "${ENABLE_IGNORE_PATHS}" ]] || die "--ignore-paths cannot be empty"
 }
 
 main() {

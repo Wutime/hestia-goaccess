@@ -108,9 +108,25 @@ Realtime mode currently:
 - allocates a port from `64000-64999`
 - installs a per-domain Nginx include for `/vstats/ws/`
 - proxies the WebSocket through the same vhost
+- ignores `/vstats/` by default so GoAccess does not count its own report traffic
 - records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`
 
 Realtime is not yet exposed in the Hestia dropdown because switching away from realtime through the Hestia UI also needs lifecycle hooks to stop the systemd service cleanly.
+
+Static and realtime modes both pre-filter logs before sending them to GoAccess. The default ignored path list is:
+
+```text
+/vstats/
+```
+
+Admins can override it through config or CLI:
+
+```bash
+hestia-goaccess enable USER DOMAIN --mode static --ignore-paths '/vstats/,/admin'
+hestia-goaccess enable USER DOMAIN --mode realtime --ignore-paths '/vstats/,/admin'
+```
+
+This is intentionally designed so a future Hestia UI field can expose the same setting without changing the underlying behavior.
 
 ## Hestia Dropdown Integration
 

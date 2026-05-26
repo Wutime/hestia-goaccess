@@ -306,8 +306,11 @@ Current realtime prototype behavior:
 - allocates a port from `GOACCESS_PORT_RANGE`, default `64000-64999`
 - installs a per-domain Nginx include named `/home/USER/conf/web/DOMAIN/nginx.conf_hestia_goaccess_realtime`
 - proxies `/vstats/ws/` to the local GoAccess listener
-- writes persisted GoAccess DB files under `/var/lib/hestia-goaccess/USER/DOMAIN`
+- filters ignored paths before GoAccess parses logs; default is `/vstats/`
+- supports comma or whitespace separated ignore paths through `--ignore-paths` or `HESTIA_GOACCESS_IGNORE_PATHS`
+- creates `/var/lib/hestia-goaccess/USER/DOMAIN` for future persisted storage, but the current filtered realtime pipeline intentionally does not use `--persist/--restore` because replaying filtered stdin with restored data can double-count after restarts
 - records `HG_PORT`, `HG_WS_URL`, and `HG_UNIT` in add-on state
+- records `HG_IGNORE_PATHS` in add-on state
 - Docker test command uses `--ws-url ws://example.test:20080/vstats/ws/` because the browser reaches the vhost through the host-mapped port
 
 Primary production target profile:

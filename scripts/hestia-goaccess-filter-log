@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+FOLLOW="no"
+
+usage() {
+	cat <<'USAGE'
+hestia-goaccess-filter-log [--follow] LOG_FILE
+
+Reads a web access log and writes entries to stdout, excluding configured URL
+paths so GoAccess does not count its own dashboard traffic.
+
+Set HESTIA_GOACCESS_IGNORE_PATHS to a comma or whitespace separated list.
+Default: /vstats/
+USAGE
+}
+
+while [[ "$#" -gt 0 ]]; do
+	case "$1" in
+		--follow)
+			FOLLOW="yes"
+			;;
+		-h|--help)
+			usage
+			exit 0
+			;;
+		*)
+			LOG_FILE="$1"
+			;;
+	esac
+	shift
+done
+
+if [[ -z "${LOG_FILE:-}" ]]; then
+	usage >&2
+	exit 1
+fi
+
+filter_log() {
+	awk '
+		BEGIN {
+			raw = ENVIRON["HESTIA_GOACCESS_IGNORE_PATHS"]
+			if (raw == "") {
+				raw = "/vstats/"
+			}
+			count = split(raw, configured, /[[:space:],]+/)
+			for (i = 1; i <= count; i++) {
+				path = configured[i]
+				if (path == "") {
+					continue
+				}
+				sub(/\/+$/, "", path)
+				if (path == "") {
+					path = "/"
+				}
+				ignore[++ignore_count] = path
+			}
+		}
+		function ignored_path(path, i, base) {
+			for (i = 1; i <= ignore_count; i++) {
+				base = ignore[i]
+				if (path == base || index(path, base "/") == 1 || index(path, base "?") == 1) {
+					return 1
+				}
+			}
+			return 0
+		}
+		function skip_request(line, request, parts, path) {
+			if (!match(line, /"[^"]*"/)) {
+				return 0
+			}
+			request = substr(line, RSTART + 1, RLENGTH - 2)
+			split(request, parts, " ")
+			path = parts[2]
+			return ignored_path(path)
+		}
+		!skip_request($0) {
+			print
+			fflush()
+		}
+	'
+}
+
+if [[ "${FOLLOW}" == "yes" ]]; then
+	tail -n +1 -F "${LOG_FILE}" | filter_log
+else
+	filter_log < "${LOG_FILE}"
+fi

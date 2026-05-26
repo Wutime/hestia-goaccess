@@ -86,10 +86,13 @@ Current realtime prototype behavior:
 - binds GoAccess to `127.0.0.1`
 - proxies `/vstats/ws/` from the domain's Nginx vhost to the local listener
 - writes realtime HTML to `/home/USER/web/DOMAIN/stats/index.html`
-- persists GoAccess data under `/var/lib/hestia-goaccess/USER/DOMAIN`
+- filters `/vstats/` by default before GoAccess parses logs
+- creates `/var/lib/hestia-goaccess/USER/DOMAIN` for future persisted storage, but does not use GoAccess `--persist/--restore` in the filtered realtime pipeline yet because restoring data and replaying filtered stdin can double-count after restarts
 - records the selected port, service unit, and WebSocket URL in add-on state
 
 `goaccess-realtime` should not be added to Hestia's dropdown until switching from realtime to another stats engine through Hestia also stops the service and removes the Nginx include.
+
+GoAccess does not provide a general `--ignore-path` option. Static and realtime modes therefore use `scripts/hestia-goaccess-filter-log` to pre-filter access logs. The current default is `/vstats/`, and the CLI accepts comma or whitespace separated overrides through `--ignore-paths`. A future Hestia UI textarea can map directly to that setting.
 
 ## GoAccess Version Policy
 
