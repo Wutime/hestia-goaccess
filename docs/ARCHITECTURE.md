@@ -34,21 +34,11 @@ The intended per-domain Hestia web statistics selector should expose separate Go
 
 ```text
 awstats
-goaccess (static)
-goaccess (real-time)
-```
-
-Internally, these should map to stable machine values such as:
-
-```text
-awstats
 goaccess-static
 goaccess-realtime
 ```
 
-This gives administrators domain-by-domain flexibility from Hestia's existing Edit Web Domain page while keeping realtime an explicit opt-in choice.
-
-Implementation note: Hestia's stock stats selector translates raw `STATS_SYSTEM` values directly. Human-friendly labels such as `goaccess (static)` may require a small Hestia web UI patch or an add-on-owned wrapper strategy. If avoiding UI patches is more important for the first release, raw values like `goaccess-static` and `goaccess-realtime` are acceptable as an early fallback.
+These values are readable enough for v1 and avoid patching Hestia's PHP UI only to prettify labels. This gives administrators domain-by-domain flexibility from Hestia's existing Edit Web Domain page while keeping realtime an explicit opt-in choice.
 
 ## URL And Output Path
 
@@ -86,7 +76,7 @@ Realtime mode should use one GoAccess process per enabled domain, managed by sys
 Recommended defaults:
 
 - bind the GoAccess WebSocket listener to `127.0.0.1`
-- use a deterministic per-domain local port or Unix socket when supported
+- use a deterministic unique local port per realtime domain
 - write the HTML report to Hestia's stats directory
 - set `--ws-url` to the public `/vstats/` WebSocket route
 - use `--persist`, `--restore`, and a per-domain `--db-path`
@@ -95,6 +85,19 @@ Recommended defaults:
 Realtime mode must protect the HTML report and the WebSocket endpoint consistently.
 
 Realtime mode does not require Apache. It requires GoAccess realtime HTML output plus a reachable WebSocket endpoint. On Hestia servers, Nginx-backed layouts are the preferred first target because Nginx is well suited to proxying the GoAccess WebSocket listener and Hestia already provides per-domain Nginx include points.
+
+Each realtime-enabled domain should have its own GoAccess process and its own localhost listener. Domains should not share a single GoAccess listener unless the design intentionally creates one combined report, which would break per-domain and per-user isolation.
+
+Recommended v1 shape:
+
+- `USER/example.com` gets a service such as `hestia-goaccess@USER--example.com.service`.
+- The service reads only that domain's access log.
+- The service writes only `/home/USER/web/example.com/stats/index.html`.
+- The service listens on a unique localhost port such as `127.0.0.1:PORT`.
+- The domain's Nginx include proxies only that domain's realtime WebSocket path to that port.
+- Hestia stats auth protects both `/vstats/` and the realtime WebSocket location.
+
+Port allocation should be deterministic and tracked in add-on state, for example under `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`, with collision detection during install/repair. If a future tested GoAccess package supports Unix domain sockets for realtime WebSockets, that can replace localhost TCP ports later, but v1 should not depend on it.
 
 ## Hestia Web Server Layouts
 
@@ -156,7 +159,6 @@ Docker cannot replace a VPS test for systemd behavior, real Nginx reloads, TLS, 
 
 ## Open Decisions
 
-- Exact human-readable label strategy for Hestia's selector: raw `goaccess-static` values first, or a PHP UI patch for `goaccess (static)` labels.
 - Exact storage format for per-domain privacy overrides.
 - Whether optional Hestia UI controls for GoAccess privacy flags belong in the first public release.
 - Whether Apache-only realtime support is in scope for the first public release.

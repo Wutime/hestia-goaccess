@@ -67,7 +67,7 @@ Initial product direction should support both concepts, but prioritize a robust 
 
 Per-domain Hestia selector direction:
 - expose `awstats`, `goaccess-static`, and `goaccess-realtime` as separate stats choices where feasible
-- prefer human labels like `goaccess (static)` and `goaccess (real-time)` if this can be done with a safe, reversible UI patch
+- use raw labels `goaccess-static` and `goaccess-realtime` for v1; they are human-readable enough and avoid an unnecessary Hestia PHP UI patch
 - keep realtime explicitly opt-in per domain
 - migrate existing AWStats domains only by explicit admin command, initially to static mode
 
@@ -154,6 +154,14 @@ goaccess /path/to/access.log \
 Do not hardcode this as final syntax until tested against Hestia `1.9.4` logs and GoAccess package versions.
 
 Realtime support does not require Apache. It requires GoAccess realtime HTML output and a protected WebSocket route. Prefer Nginx-backed Hestia layouts first because WebSocket proxying is required and Hestia's Nginx templates already support per-domain include snippets. Apache-only realtime support should be detected and documented before it is promised.
+
+Realtime domain isolation direction:
+- do not share one GoAccess realtime listener between unrelated domains
+- run one GoAccess process/listener per realtime-enabled domain
+- bind each listener to `127.0.0.1` on a deterministic unique port for v1
+- proxy each domain's WebSocket path through that domain's Nginx include only
+- protect both `/vstats/` and the WebSocket path with Hestia stats auth
+- track assigned ports in add-on state and check collisions in install/repair
 
 ## Resource Safety
 Realtime GoAccess is usually efficient after initial parsing, but the project must assume shared production servers and busy sites.
