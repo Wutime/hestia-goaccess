@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$#" -ne 7 ]]; then
+	printf 'usage: hestia-goaccess-realtime-runner FILTER_LOG LOG_PATH REPORT_PATH BIND PORT WS_URL DOMAIN\n' >&2
+	exit 64
+fi
+
+filter_log="$1"
+log_path="$2"
+report_path="$3"
+bind_addr="$4"
+port="$5"
+ws_url="$6"
+domain="$7"
+
+html_pref_args=()
+if [[ -n "${HESTIA_GOACCESS_HTML_PREFS:-}" ]]; then
+	html_pref_args=(--html-prefs="${HESTIA_GOACCESS_HTML_PREFS}")
+fi
+
+exec "${filter_log}" --follow "${log_path}" |
+	goaccess - \
+		--log-format=COMBINED \
+		--real-time-html \
+		--output="${report_path}" \
+		--addr="${bind_addr}" \
+		--port="${port}" \
+		--ws-url="${ws_url}" \
+		--anonymize-ip \
+		--no-query-string \
+		--ignore-crawlers \
+		"${html_pref_args[@]}" \
+		--html-report-title="${domain} GoAccess Realtime" \
+		--no-progress

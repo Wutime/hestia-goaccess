@@ -87,6 +87,7 @@ Current realtime behavior:
 - proxies `/vstats/ws/` from the domain's Nginx vhost to the local listener
 - writes realtime HTML to `/home/USER/web/DOMAIN/stats/index.html`
 - filters `/vstats/` by default before GoAccess parses logs
+- preselects GoAccess' shipped `darkGray` HTML theme through `GOACCESS_HTML_PREFS='{"theme":"darkGray"}'`
 - creates `/var/lib/hestia-goaccess/USER/DOMAIN` for future persisted storage, but does not use GoAccess `--persist/--restore` in the filtered realtime pipeline yet because restoring data and replaying filtered stdin can double-count after restarts
 - records the selected port, service unit, and WebSocket URL in add-on state
 - stops the realtime service and removes the Nginx include when Hestia switches the domain to another stats type or disables stats

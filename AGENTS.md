@@ -316,6 +316,8 @@ Current realtime prototype behavior:
 - creates `/var/lib/hestia-goaccess/USER/DOMAIN` for future persisted storage, but the current filtered realtime pipeline intentionally does not use `--persist/--restore` because replaying filtered stdin with restored data can double-count after restarts
 - records `HG_PORT`, `HG_WS_URL`, and `HG_UNIT` in add-on state
 - records `HG_IGNORE_PATHS` in add-on state
+- records `HG_HTML_PREFS` in add-on state
+- defaults GoAccess HTML reports to `GOACCESS_HTML_PREFS='{"theme":"darkGray"}'`
 - Docker test command uses `--ws-url ws://example.test:20080/vstats/ws/` because the browser reaches the vhost through the host-mapped port
 - Docker dropdown testing should set `GOACCESS_REALTIME_WS_URL_TEMPLATE=ws://%domain%:20080/vstats/ws/` in `/etc/hestia-goaccess/defaults.conf`
 

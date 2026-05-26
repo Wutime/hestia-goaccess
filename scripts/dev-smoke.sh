@@ -15,6 +15,7 @@ bash -n "${repo_root}/uninstall.sh"
 bash -n "${repo_root}/bin/hestia-goaccess"
 bash -n "${repo_root}/scripts/check-goaccess-version.sh"
 bash -n "${repo_root}/scripts/hestia-goaccess-filter-log"
+bash -n "${repo_root}/scripts/hestia-goaccess-realtime-runner"
 bash -n "${repo_root}/scripts/install-goaccess-debian.sh"
 bash -n "${repo_root}/patches/hestia/v-delete-web-domain-stats.wrapper"
 bash -n "${repo_root}/patches/hestia/v-update-web-domain-stat.wrapper"
@@ -26,6 +27,7 @@ if command -v shellcheck >/dev/null 2>&1; then
 		"${repo_root}/bin/hestia-goaccess" \
 		"${repo_root}/scripts/check-goaccess-version.sh" \
 		"${repo_root}/scripts/hestia-goaccess-filter-log" \
+		"${repo_root}/scripts/hestia-goaccess-realtime-runner" \
 		"${repo_root}/scripts/install-goaccess-debian.sh" \
 		"${repo_root}/patches/hestia/v-delete-web-domain-stats.wrapper" \
 		"${repo_root}/patches/hestia/v-update-web-domain-stat.wrapper" \
@@ -40,10 +42,12 @@ goaccess "${log_file}" \
 	--no-query-string \
 	--output="${report}" \
 	--ignore-crawlers \
+	--html-prefs='{"theme":"darkGray"}' \
 	--html-report-title="example.test GoAccess Smoke"
 
 test -s "${report}"
 grep -q "example.test GoAccess Smoke" "${report}"
+grep -q 'var html_prefs={"theme":"darkGray"}' "${report}"
 
 echo "dev smoke passed: ${report}"
 echo "report URL: http://goaccess.localhost:18080/vstats/"

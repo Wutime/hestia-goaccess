@@ -115,6 +115,7 @@ Realtime mode currently:
 - installs a per-domain Nginx include for `/vstats/ws/`
 - proxies the WebSocket through the same vhost
 - ignores `/vstats/` by default so GoAccess does not count its own report traffic
+- preselects GoAccess' shipped `darkGray` HTML theme by default
 - records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`
 - stops the realtime service and removes the Nginx include when Hestia switches the domain away from `goaccess-realtime`
 
@@ -132,6 +133,14 @@ hestia-goaccess enable USER DOMAIN --mode realtime --ignore-paths '/vstats/,/adm
 ```
 
 This is intentionally designed so a future Hestia UI field can expose the same setting without changing the underlying behavior.
+
+The default GoAccess HTML preferences are:
+
+```bash
+GOACCESS_HTML_PREFS='{"theme":"darkGray"}'
+```
+
+Admins can override that value in `/etc/hestia-goaccess/defaults.conf`; setting it to an empty value lets GoAccess use its upstream HTML theme behavior.
 
 ## Hestia Dropdown Integration
 
