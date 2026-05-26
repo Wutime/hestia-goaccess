@@ -1023,9 +1023,11 @@ parse_enable_options() {
 			--ignore-paths)
 				shift
 				ENABLE_IGNORE_PATHS="${1:-}"
+				[[ -n "${ENABLE_IGNORE_PATHS}" ]] || die "--ignore-paths requires a non-empty value"
 				;;
 			--ignore-paths=*)
 				ENABLE_IGNORE_PATHS="${1#--ignore-paths=}"
+				[[ -n "${ENABLE_IGNORE_PATHS}" ]] || die "--ignore-paths requires a non-empty value"
 				;;
 			*)
 				die "unknown enable option: $1"
@@ -1036,7 +1038,6 @@ parse_enable_options() {
 
 	[[ -n "${ENABLE_MODE}" ]] || die "enable requires --mode static or --mode realtime"
 	[[ "${ENABLE_MODE}" == "static" || "${ENABLE_MODE}" == "realtime" ]] || die "mode ${ENABLE_MODE} is not implemented yet"
-	[[ -n "${ENABLE_IGNORE_PATHS}" ]] || die "--ignore-paths cannot be empty"
 }
 
 main() {
