@@ -107,6 +107,15 @@ Then open:
 http://example.test:20080/vstats/
 ```
 
+For nicer local traffic tests, seed the Docker Hestia domain with mock pages:
+
+```bash
+docker compose cp scripts/install-hestia-mock-site.sh hestia-vps:/workspace/scripts/install-hestia-mock-site.sh
+docker compose exec hestia-vps bash /workspace/scripts/install-hestia-mock-site.sh demo example.test
+```
+
+This creates pages such as `/pricing/`, `/product/tour/`, `/docs/start/`, and `/blog/post-1` through `/blog/post-20` so simulated traffic produces useful `200` responses instead of mostly `404`s.
+
 Realtime mode currently:
 
 - runs one systemd service per enabled domain
