@@ -69,6 +69,18 @@ Static mode should support Nginx-only and Nginx-plus-Apache Hestia layouts first
 
 Static mode is also the initial migration target for existing AWStats domains. Any bulk migration command should require an explicit admin action, such as `hestia-goaccess migrate-awstats --all --mode static`, and should not silently convert domains during install.
 
+## GoAccess Version Policy
+
+The v1 baseline is GoAccess `1.10.2` or newer. The installer and `doctor` command should:
+
+- check whether `goaccess` exists
+- parse `goaccess --version`
+- fail clearly if the version is older than the configured baseline
+- install GoAccess only when it is missing and the administrator has allowed dependency installation
+- avoid silently upgrading an existing GoAccess package on production servers
+
+If GoAccess is missing, the preferred Debian/Ubuntu source is GoAccess' official deb repository. If a server already has an older distro package installed, the add-on should explain how to upgrade through the official GoAccess repo or provide an explicit `--upgrade-goaccess` path.
+
 ## Realtime Mode
 
 Realtime mode should use one GoAccess process per enabled domain, managed by systemd on real servers.

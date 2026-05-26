@@ -12,7 +12,7 @@ Current target:
 
 - HestiaCP 1.9.4+
 - Debian 11/12 and Ubuntu 22.04/24.04 LTS, matching Hestia's supported platforms
-- GoAccess from the operating system package manager where practical
+- GoAccess 1.10.2+
 
 ## Planned Features
 
@@ -63,6 +63,10 @@ docker compose exec dev scripts/dev-smoke.sh
 ```
 
 The default development target should mirror the maintainer's production Hestia server where possible. Use `scripts/collect-hestia-inventory.sh` for read-only inventory before changing production systems.
+
+## GoAccess Baseline
+
+The installer should require GoAccess `1.10.2` or newer. If GoAccess is missing, install/doctor can offer to install it from GoAccess' official Debian/Ubuntu repository. If an older version is already installed, the safe default is to stop with a clear error and upgrade instructions unless the administrator explicitly asks the add-on to upgrade GoAccess.
 
 ## Security Direction
 

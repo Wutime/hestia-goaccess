@@ -13,10 +13,18 @@ rm -f "${report}"
 bash -n "${repo_root}/install.sh"
 bash -n "${repo_root}/uninstall.sh"
 bash -n "${repo_root}/bin/hestia-goaccess"
+bash -n "${repo_root}/scripts/check-goaccess-version.sh"
 
 if command -v shellcheck >/dev/null 2>&1; then
-	shellcheck "${repo_root}/install.sh" "${repo_root}/uninstall.sh" "${repo_root}/bin/hestia-goaccess" "${BASH_SOURCE[0]}"
+	shellcheck \
+		"${repo_root}/install.sh" \
+		"${repo_root}/uninstall.sh" \
+		"${repo_root}/bin/hestia-goaccess" \
+		"${repo_root}/scripts/check-goaccess-version.sh" \
+		"${BASH_SOURCE[0]}"
 fi
+
+"${repo_root}/scripts/check-goaccess-version.sh"
 
 goaccess "${log_file}" \
 	--log-format=COMBINED \
@@ -30,4 +38,3 @@ test -s "${report}"
 grep -q "example.test GoAccess Smoke" "${report}"
 
 echo "dev smoke passed: ${report}"
-

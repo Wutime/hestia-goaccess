@@ -20,6 +20,8 @@ docker compose exec dev scripts/dev-smoke.sh
 
 The smoke test checks shell syntax, runs ShellCheck when available, and generates a static GoAccess report from a fixture Hestia-style Nginx access log.
 
+The development image installs GoAccess from the official GoAccess Debian repository so the harness tracks the project baseline instead of the older package versions that may ship with Debian/Ubuntu.
+
 Stop the container:
 
 ```bash

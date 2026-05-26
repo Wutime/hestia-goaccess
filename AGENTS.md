@@ -49,7 +49,7 @@ It is acceptable for the installer to fetch project-owned assets from:
 
 Prefer no runtime dependencies beyond:
 - HestiaCP
-- GoAccess
+- GoAccess 1.10.2+
 - systemd
 - Nginx / Hestia web stack
 - standard POSIX shell tools
@@ -299,6 +299,13 @@ For live Hestia servers:
 - provide rollback steps
 
 The installer must be idempotent where possible.
+
+GoAccess dependency policy:
+- require GoAccess `1.10.2` or newer for v1
+- check `goaccess --version` during install and doctor
+- if GoAccess is missing, install only when dependency installation is explicitly allowed
+- if GoAccess is present but older than baseline, fail with a clear error unless the admin explicitly requested an upgrade path
+- prefer GoAccess' official Debian/Ubuntu repository over stale distro packages when installation or upgrade is requested
 
 ## Initial Milestones
 Milestone 1: Research and Skeleton
