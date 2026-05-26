@@ -88,6 +88,7 @@ Current realtime behavior:
 - binds GoAccess to `127.0.0.1`
 - proxies `/vstats/ws/` from the domain's Nginx vhost to the local listener
 - sets GoAccess `--ws-url` with an explicit public port, such as `wss://DOMAIN:443/vstats/ws/`, because GoAccess' browser client only honors custom WebSocket URLs that include a port
+- uses a concrete Hestia/Nginx redirect target, such as `www.DOMAIN`, as the public WebSocket host when the domain redirects to that host
 - writes realtime HTML to `/home/USER/web/DOMAIN/stats/index.html`
 - filters `/vstats/` by default before GoAccess parses logs
 - preselects GoAccess' shipped `darkGray` HTML theme through `GOACCESS_HTML_PREFS='{"theme":"darkGray"}'`

@@ -238,6 +238,7 @@ Realtime mode:
 - installs a per-domain Nginx include for `/vstats/ws/`
 - proxies the WebSocket through the same vhost
 - writes the public WebSocket URL with an explicit port, for example `wss://DOMAIN:443/vstats/ws/`, so GoAccess' browser client uses the proxied route
+- honors concrete Hestia/Nginx redirects such as `DOMAIN` to `www.DOMAIN` when choosing the public WebSocket host
 - ignores `/vstats/` by default so GoAccess does not count its own report traffic
 - preselects GoAccess' shipped `darkGray` HTML theme by default
 - uses a bounded systemd stop timeout so re-enable and uninstall do not hang on stale realtime processes

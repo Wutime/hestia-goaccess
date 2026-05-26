@@ -333,6 +333,7 @@ Current realtime prototype behavior:
 - allocates a port from `GOACCESS_PORT_RANGE`, default `64000-64999`
 - installs a per-domain Nginx include named `/home/USER/conf/web/DOMAIN/nginx.conf_hestia_goaccess_realtime`
 - sets `--ws-url` with an explicit public port such as `wss://DOMAIN:443/vstats/ws/`; GoAccess' browser client may ignore custom WebSocket URLs without a port and fall back to the internal listener port
+- if Hestia/Nginx config has a concrete redirect from the base domain to another host such as `www.DOMAIN`, use that host in the generated WebSocket URL
 - proxies `/vstats/ws/` to the local GoAccess listener
 - filters ignored paths before GoAccess parses logs; default is `/vstats/`
 - supports comma or whitespace separated ignore paths through `--ignore-paths` or `HESTIA_GOACCESS_IGNORE_PATHS`

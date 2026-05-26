@@ -202,6 +202,29 @@ domain_public_scheme() {
 	fi
 }
 
+domain_public_host() {
+	local user="$1"
+	local domain="$2"
+	local conf_dir="/home/${user}/conf/web/${domain}"
+	local conf_file
+	local redirect_host
+
+	if [[ -d "${conf_dir}" ]]; then
+		while IFS= read -r conf_file; do
+			redirect_host="$(
+				sed -nE 's|^[[:space:]]*return[[:space:]]+30[12378][[:space:]]+https?://([^/$;[:space:]]+)\$request_uri;.*|\1|p' "${conf_file}" |
+					head -n 1
+			)"
+			if [[ -n "${redirect_host}" && "${redirect_host}" != *'$'* ]]; then
+				printf '%s\n' "${redirect_host}"
+				return
+			fi
+		done < <(find "${conf_dir}" -maxdepth 1 -type f \( -name 'nginx.conf*' -o -name 'nginx.ssl.conf*' \) | sort)
+	fi
+
+	printf '%s\n' "${domain}"
+}
+
 domain_log_path() {
 	local domain="$1"
 	local apache_log="/var/log/apache2/domains/${domain}.log"
@@ -272,7 +295,7 @@ expected_nginx_include_file() {
 nginx_loads_include_file() {
 	local include_file="$1"
 
-	nginx -T 2>/dev/null | grep -Fq "# configuration file ${include_file}:"
+	nginx -T 2>/dev/null | grep -F "# configuration file ${include_file}:" >/dev/null
 }
 
 validate_nginx_realtime_include_loaded() {
@@ -524,13 +547,15 @@ default_ws_url() {
 	local domain="$2"
 	local line
 	local scheme
+	local public_host
 	local public_port
 	local url
 
 	line="$(domain_line "${user}" "${domain}")"
 	scheme="$(domain_public_scheme "${line}")"
+	public_host="$(domain_public_host "${user}" "${domain}")"
 	if [[ -n "${GOACCESS_REALTIME_WS_URL_TEMPLATE}" ]]; then
-		url="${GOACCESS_REALTIME_WS_URL_TEMPLATE//%domain%/${domain}}"
+		url="${GOACCESS_REALTIME_WS_URL_TEMPLATE//%domain%/${public_host}}"
 		url="${url//%scheme%/${scheme}}"
 		printf '%s\n' "${url}"
 		return
@@ -540,7 +565,7 @@ default_ws_url() {
 	else
 		public_port="80"
 	fi
-	printf '%s://%s:%s%s\n' "${scheme}" "${domain}" "${public_port}" "${GOACCESS_REALTIME_WS_PATH}"
+	printf '%s://%s:%s%s\n' "${scheme}" "${public_host}" "${public_port}" "${GOACCESS_REALTIME_WS_PATH}"
 }
 
 write_nginx_realtime_include() {
