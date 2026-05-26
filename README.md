@@ -10,7 +10,7 @@ This project has passed local Docker testing against a fresh Hestia `1.9.4` inst
 
 For the first live install, use one domain first and keep the rollback commands below nearby.
 
-Current target:
+Supported platform:
 
 - HestiaCP 1.9.4+
 - Debian 11/12 and Ubuntu 22.04/24.04 LTS, matching Hestia's supported platforms
