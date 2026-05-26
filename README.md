@@ -33,7 +33,7 @@ The current installer prepares static GoAccess mode without patching Hestia core
 sudo ./install.sh
 ```
 
-To also make `goaccess-static` appear in Hestia's per-domain Web Statistics dropdown:
+To also make `goaccess-static` and `goaccess-realtime` appear in Hestia's per-domain Web Statistics dropdown:
 
 ```bash
 sudo ./install.sh --with-hestia-dropdown
@@ -55,7 +55,7 @@ Installer behavior today:
 - installs `hestia-goaccess` into `/usr/local/bin`
 - creates `/etc/hestia-goaccess`
 - leaves Hestia UI and core command files unchanged unless `--with-hestia-dropdown` is used
-- with `--with-hestia-dropdown`, adds `goaccess-static` to `STATS_SYSTEM`, installs a Hestia stats template, and wraps `v-update-web-domain-stat` with a backed-up fallback to Hestia's original updater
+- with `--with-hestia-dropdown`, adds `goaccess-static` and `goaccess-realtime` to `STATS_SYSTEM`, installs Hestia stats templates, and wraps Hestia stats update/delete commands with backed-up fallbacks to Hestia's original commands
 
 After install, the CLI can run a static GoAccess report for an existing Hestia domain:
 
@@ -87,12 +87,18 @@ hestia-goaccess migrate-awstats --all --mode static
 hestia-goaccess uninstall
 ```
 
-Realtime mode is an explicit per-domain CLI opt-in in the current prototype. Existing AWStats domains should only be migrated by an explicit administrator command, and the initial migration target should be static mode.
+Realtime mode is an explicit per-domain opt-in. Existing AWStats domains should only be migrated by an explicit administrator command, and the initial migration target should be static mode.
 
 For local Docker testing, the browser sees the Hestia vhost through port `20080`, so pass an explicit WebSocket URL:
 
 ```bash
 docker compose exec hestia-vps hestia-goaccess enable demo example.test --mode realtime --ws-url ws://example.test:20080/vstats/ws/
+```
+
+If testing realtime through Hestia's dropdown in Docker, set the local WebSocket URL template first:
+
+```bash
+docker compose exec hestia-vps sed -i 's|^GOACCESS_REALTIME_WS_URL_TEMPLATE=.*|GOACCESS_REALTIME_WS_URL_TEMPLATE=ws://%domain%:20080/vstats/ws/|' /etc/hestia-goaccess/defaults.conf
 ```
 
 Then open:
@@ -110,8 +116,7 @@ Realtime mode currently:
 - proxies the WebSocket through the same vhost
 - ignores `/vstats/` by default so GoAccess does not count its own report traffic
 - records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`
-
-Realtime is not yet exposed in the Hestia dropdown because switching away from realtime through the Hestia UI also needs lifecycle hooks to stop the systemd service cleanly.
+- stops the realtime service and removes the Nginx include when Hestia switches the domain away from `goaccess-realtime`
 
 Static and realtime modes both pre-filter logs before sending them to GoAccess. The default ignored path list is:
 
@@ -130,7 +135,7 @@ This is intentionally designed so a future Hestia UI field can expose the same s
 
 ## Hestia Dropdown Integration
 
-`goaccess-static` appears in Hestia's Web Statistics dropdown only after the optional dropdown integration is installed:
+`goaccess-static` and `goaccess-realtime` appear in Hestia's Web Statistics dropdown only after the optional dropdown integration is installed:
 
 ```bash
 sudo ./install.sh --with-hestia-dropdown
@@ -139,13 +144,18 @@ sudo ./install.sh --with-hestia-dropdown
 This integration currently:
 
 - backs up Hestia files before changing them
-- appends `goaccess-static` to `/usr/local/hestia/conf/hestia.conf`
+- appends `goaccess-static` and `goaccess-realtime` to `/usr/local/hestia/conf/hestia.conf`
 - installs `/usr/local/hestia/data/templates/web/goaccess-static/goaccess-static.tpl`
+- installs `/usr/local/hestia/data/templates/web/goaccess-realtime/goaccess-realtime.tpl`
 - wraps `/usr/local/hestia/bin/v-update-web-domain-stat`
+- wraps `/usr/local/hestia/bin/v-delete-web-domain-stats`
 - preserves Hestia's original updater at `/usr/local/hestia/bin/v-update-web-domain-stat.hestia-goaccess-original`
+- preserves Hestia's original stats delete command at `/usr/local/hestia/bin/v-delete-web-domain-stats.hestia-goaccess-original`
 - runs `hestia-goaccess enable USER DOMAIN --mode static` when a domain's `STATS` value is `goaccess-static`
+- runs `hestia-goaccess enable USER DOMAIN --mode realtime` when a domain's `STATS` value is `goaccess-realtime`
+- runs `hestia-goaccess disable USER DOMAIN` before falling back to Hestia's original updater/delete command for non-GoAccess stats
 
-The visible dropdown value is `goaccess-static` rather than `goaccess (static)` so v1 can avoid patching Hestia PHP UI label rendering.
+The visible dropdown values are `goaccess-static` and `goaccess-realtime` rather than labels with parentheses so v1 can avoid patching Hestia PHP UI label rendering.
 
 ## Docker Testing
 

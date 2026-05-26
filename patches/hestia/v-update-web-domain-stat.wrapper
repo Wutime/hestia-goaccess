@@ -38,7 +38,17 @@ case "$STATS" in
 		fi
 		exec /usr/local/bin/hestia-goaccess enable "$user" "$domain" --mode static
 		;;
+	goaccess-realtime)
+		config="$HOMEDIR/$user/conf/web/$domain/$STATS.conf"
+		if [ ! -e "$config" ]; then
+			check_result "$E_NOTEXISTS" "$config doesn't exist"
+		fi
+		exec /usr/local/bin/hestia-goaccess enable "$user" "$domain" --mode realtime
+		;;
 	*)
+		if [ -x /usr/local/bin/hestia-goaccess ]; then
+			/usr/local/bin/hestia-goaccess disable "$user" "$domain" >/dev/null 2>&1 || true
+		fi
 		exec "$BIN/v-update-web-domain-stat.hestia-goaccess-original" "$user" "$domain"
 		;;
 esac

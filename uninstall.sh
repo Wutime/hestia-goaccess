@@ -5,7 +5,7 @@ PREFIX="/usr/local"
 ASSUME_YES="no"
 REMOVE_STATE="no"
 REMOVE_DROPDOWN="no"
-ADDON_STATS_TYPE="goaccess-static"
+ADDON_STATS_TYPES=("goaccess-static" "goaccess-realtime")
 
 usage() {
 	cat <<'USAGE'
@@ -18,7 +18,7 @@ Options:
   --yes           Run without confirmation prompts.
   --remove-state  Also remove /etc/hestia-goaccess state and config files.
   --remove-hestia-dropdown
-                  Restore the Hestia stats updater and remove goaccess-static from STATS_SYSTEM.
+                  Restore Hestia stats commands and remove GoAccess stats types from STATS_SYSTEM.
   --prefix PATH   Remove the hestia-goaccess command from PATH/bin.
   -h, --help      Show this help.
 
@@ -97,28 +97,45 @@ confirm "Remove hestia-goaccess CLI files?"
 
 remove_dropdown_integration() {
 	local conf="/usr/local/hestia/conf/hestia.conf"
-	local target="/usr/local/hestia/bin/v-update-web-domain-stat"
-	local original="/usr/local/hestia/bin/v-update-web-domain-stat.hestia-goaccess-original"
-	local template_dir="/usr/local/hestia/data/templates/web/${ADDON_STATS_TYPE}"
 	local current
 	local updated=""
 	local -a items
 	local item
 	local tmp
+	local type
 
-	if [[ -f "${original}" ]] && grep -q 'hestia-goaccess managed wrapper' "${target}" 2>/dev/null; then
-		backup_file "${target}"
-		cp -p "${original}" "${target}"
-		rm -f "${original}"
-		printf 'restored: %s\n' "${target}"
-	fi
+	restore_wrapper() {
+		local command="$1"
+		local target="/usr/local/hestia/bin/${command}"
+		local original="/usr/local/hestia/bin/${command}.hestia-goaccess-original"
+
+		if [[ -f "${original}" ]] && grep -q 'hestia-goaccess managed wrapper' "${target}" 2>/dev/null; then
+			backup_file "${target}"
+			cp -p "${original}" "${target}"
+			rm -f "${original}"
+			printf 'restored: %s\n' "${target}"
+		fi
+	}
+
+	is_addon_type() {
+		local candidate="$1"
+		local addon_type
+
+		for addon_type in "${ADDON_STATS_TYPES[@]}"; do
+			[[ "${candidate}" == "${addon_type}" ]] && return 0
+		done
+		return 1
+	}
+
+	restore_wrapper "v-update-web-domain-stat"
+	restore_wrapper "v-delete-web-domain-stats"
 
 	if [[ -f "${conf}" ]]; then
 		current="$(sed -n "s/^STATS_SYSTEM='\\(.*\\)'$/\\1/p" "${conf}" | head -n 1)"
 		if [[ -n "${current}" ]]; then
 			IFS=',' read -r -a items <<< "${current}"
 			for item in "${items[@]}"; do
-				[[ "${item}" == "${ADDON_STATS_TYPE}" ]] && continue
+				is_addon_type "${item}" && continue
 				if [[ -z "${updated}" ]]; then
 					updated="${item}"
 				else
@@ -142,8 +159,10 @@ remove_dropdown_integration() {
 		fi
 	fi
 
-	rm -rf "${template_dir}"
-	printf 'removed: %s\n' "${template_dir}"
+	for type in "${ADDON_STATS_TYPES[@]}"; do
+		rm -rf "/usr/local/hestia/data/templates/web/${type}"
+		printf 'removed: %s\n' "/usr/local/hestia/data/templates/web/${type}"
+	done
 }
 
 if [[ "${REMOVE_DROPDOWN}" == "yes" ]]; then

@@ -288,17 +288,22 @@ Installer prototype behavior:
 - leaves Hestia core/UI files unchanged unless `--with-hestia-dropdown` is used
 
 Optional dropdown integration behavior:
-- appends `goaccess-static` to `/usr/local/hestia/conf/hestia.conf` `STATS_SYSTEM`
+- appends `goaccess-static` and `goaccess-realtime` to `/usr/local/hestia/conf/hestia.conf` `STATS_SYSTEM`
 - installs `/usr/local/hestia/data/templates/web/goaccess-static/goaccess-static.tpl`
+- installs `/usr/local/hestia/data/templates/web/goaccess-realtime/goaccess-realtime.tpl`
 - wraps `/usr/local/hestia/bin/v-update-web-domain-stat`
+- wraps `/usr/local/hestia/bin/v-delete-web-domain-stats`
 - stores the original updater at `/usr/local/hestia/bin/v-update-web-domain-stat.hestia-goaccess-original`
+- stores the original delete-stats command at `/usr/local/hestia/bin/v-delete-web-domain-stats.hestia-goaccess-original`
 - stores timestamped backups under `/etc/hestia-goaccess/backups`
 - dispatches only `STATS='goaccess-static'` to `/usr/local/bin/hestia-goaccess enable USER DOMAIN --mode static`
+- dispatches only `STATS='goaccess-realtime'` to `/usr/local/bin/hestia-goaccess enable USER DOMAIN --mode realtime`
 - falls through all other stats types to Hestia's original updater
-- does not patch Hestia PHP UI labels; the dropdown value is `goaccess-static`
+- calls `hestia-goaccess disable USER DOMAIN` before falling through or deleting stats so realtime services and Nginx includes are removed
+- does not patch Hestia PHP UI labels; the dropdown values are `goaccess-static` and `goaccess-realtime`
 
 Current realtime prototype behavior:
-- is CLI-managed only; do not expose `goaccess-realtime` in Hestia's dropdown until Hestia change/delete lifecycle cleanup is implemented
+- is available through CLI and Hestia dropdown after `--with-hestia-dropdown`
 - runs one systemd service per enabled domain
 - service names use `hestia-goaccess-USER-SAFE_DOMAIN.service`
 - runs GoAccess as the Hestia user/group for the domain
@@ -312,6 +317,7 @@ Current realtime prototype behavior:
 - records `HG_PORT`, `HG_WS_URL`, and `HG_UNIT` in add-on state
 - records `HG_IGNORE_PATHS` in add-on state
 - Docker test command uses `--ws-url ws://example.test:20080/vstats/ws/` because the browser reaches the vhost through the host-mapped port
+- Docker dropdown testing should set `GOACCESS_REALTIME_WS_URL_TEMPLATE=ws://%domain%:20080/vstats/ws/` in `/etc/hestia-goaccess/defaults.conf`
 
 Primary production target profile:
 - Ubuntu 22.04.5 LTS

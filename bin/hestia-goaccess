@@ -33,6 +33,7 @@ GOACCESS_FILTER_LOG="${HESTIA_GOACCESS_FILTER_LOG:-${GOACCESS_FILTER_LOG:-${DEFA
 GOACCESS_IGNORE_PATHS="${HESTIA_GOACCESS_IGNORE_PATHS:-${GOACCESS_IGNORE_PATHS:-/vstats/}}"
 GOACCESS_REALTIME_BIND="${GOACCESS_REALTIME_BIND:-127.0.0.1}"
 GOACCESS_REALTIME_WS_PATH="${GOACCESS_REALTIME_WS_PATH:-/vstats/ws/}"
+GOACCESS_REALTIME_WS_URL_TEMPLATE="${HESTIA_GOACCESS_REALTIME_WS_URL_TEMPLATE:-${GOACCESS_REALTIME_WS_URL_TEMPLATE:-}}"
 
 usage() {
 	cat <<'USAGE'
@@ -397,9 +398,16 @@ default_ws_url() {
 	local domain="$2"
 	local line
 	local scheme
+	local url
 
 	line="$(domain_line "${user}" "${domain}")"
 	scheme="$(domain_public_scheme "${line}")"
+	if [[ -n "${GOACCESS_REALTIME_WS_URL_TEMPLATE}" ]]; then
+		url="${GOACCESS_REALTIME_WS_URL_TEMPLATE//%domain%/${domain}}"
+		url="${url//%scheme%/${scheme}}"
+		printf '%s\n' "${url}"
+		return
+	fi
 	printf '%s://%s%s\n' "${scheme}" "${domain}" "${GOACCESS_REALTIME_WS_PATH}"
 }
 

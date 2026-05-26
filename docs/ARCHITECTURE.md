@@ -77,11 +77,11 @@ Current prototype behavior:
 - Generated report state is recorded under `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`.
 - Hestia core dropdown integration is optional via `./install.sh --with-hestia-dropdown`.
 
-Without dropdown integration, Hestia can serve `/vstats/`, but the Edit Web Domain stats dropdown will not show `goaccess-static`. With dropdown integration enabled, `goaccess-static` is appended to `STATS_SYSTEM`, a matching Hestia stats template is installed, and `v-update-web-domain-stat` is wrapped so only `goaccess-static` dispatches to the add-on while AWStats and other future stats engines fall through to Hestia's original updater.
+Without dropdown integration, Hestia can serve `/vstats/`, but the Edit Web Domain stats dropdown will not show GoAccess options. With dropdown integration enabled, `goaccess-static` and `goaccess-realtime` are appended to `STATS_SYSTEM`, matching Hestia stats templates are installed, and Hestia's stats update/delete commands are wrapped so GoAccess values dispatch to the add-on while AWStats and future stats engines fall through to Hestia's original commands.
 
-Current realtime prototype behavior:
+Current realtime behavior:
 
-- remains CLI-managed while lifecycle cleanup is being built
+- is available through CLI and Hestia dropdown after `--with-hestia-dropdown`
 - creates one systemd service per realtime-enabled domain
 - binds GoAccess to `127.0.0.1`
 - proxies `/vstats/ws/` from the domain's Nginx vhost to the local listener
@@ -89,8 +89,7 @@ Current realtime prototype behavior:
 - filters `/vstats/` by default before GoAccess parses logs
 - creates `/var/lib/hestia-goaccess/USER/DOMAIN` for future persisted storage, but does not use GoAccess `--persist/--restore` in the filtered realtime pipeline yet because restoring data and replaying filtered stdin can double-count after restarts
 - records the selected port, service unit, and WebSocket URL in add-on state
-
-`goaccess-realtime` should not be added to Hestia's dropdown until switching from realtime to another stats engine through Hestia also stops the service and removes the Nginx include.
+- stops the realtime service and removes the Nginx include when Hestia switches the domain to another stats type or disables stats
 
 GoAccess does not provide a general `--ignore-path` option. Static and realtime modes therefore use `scripts/hestia-goaccess-filter-log` to pre-filter access logs. The current default is `/vstats/`, and the CLI accepts comma or whitespace separated overrides through `--ignore-paths`. A future Hestia UI textarea can map directly to that setting.
 

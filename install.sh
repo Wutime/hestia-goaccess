@@ -10,7 +10,7 @@ INSTALL_GOACCESS="yes"
 UPGRADE_GOACCESS="no"
 ASSUME_YES="no"
 WITH_DROPDOWN="no"
-ADDON_STATS_TYPE="goaccess-static"
+ADDON_STATS_TYPES=("goaccess-static" "goaccess-realtime")
 
 usage() {
 	cat <<'USAGE'
@@ -24,7 +24,7 @@ Options:
   --without-goaccess   Do not install GoAccess if it is missing.
   --upgrade-goaccess   Allow the installer to upgrade an old GoAccess package.
   --with-hestia-dropdown
-                       Register goaccess-static in Hestia's Web Statistics dropdown.
+                       Register goaccess-static and goaccess-realtime in Hestia's Web Statistics dropdown.
   --prefix PATH        Install the hestia-goaccess command under PATH/bin.
   -h, --help           Show this help.
 
@@ -235,6 +235,7 @@ stats_system_has_type() {
 }
 
 register_stats_system_type() {
+	local type="$1"
 	local conf="/usr/local/hestia/conf/hestia.conf"
 	local current
 	local updated
@@ -242,12 +243,12 @@ register_stats_system_type() {
 
 	current="$(stats_system_value)"
 	[[ -n "${current}" ]] || die "unable to read STATS_SYSTEM from ${conf}"
-	if stats_system_has_type "${current}" "${ADDON_STATS_TYPE}"; then
-		info "ok: ${ADDON_STATS_TYPE} already registered in STATS_SYSTEM"
+	if stats_system_has_type "${current}" "${type}"; then
+		info "ok: ${type} already registered in STATS_SYSTEM"
 		return
 	fi
 
-	updated="${current},${ADDON_STATS_TYPE}"
+	updated="${current},${type}"
 	tmp="$(mktemp)"
 	backup_file "${conf}"
 	awk -v updated="${updated}" '
@@ -259,44 +260,53 @@ register_stats_system_type() {
 	' "${conf}" > "${tmp}"
 	cat "${tmp}" > "${conf}"
 	rm -f "${tmp}"
-	info "registered: ${ADDON_STATS_TYPE} in STATS_SYSTEM"
+	info "registered: ${type} in STATS_SYSTEM"
 }
 
 install_stats_template() {
-	local template_dir="/usr/local/hestia/data/templates/web/${ADDON_STATS_TYPE}"
+	local type="$1"
+	local template_dir="/usr/local/hestia/data/templates/web/${type}"
 
 	install -d -m 0755 "${template_dir}"
 	install -m 0644 \
-		"${repo_root}/templates/web/${ADDON_STATS_TYPE}/${ADDON_STATS_TYPE}.tpl" \
-		"${template_dir}/${ADDON_STATS_TYPE}.tpl"
-	info "installed: ${template_dir}/${ADDON_STATS_TYPE}.tpl"
+		"${repo_root}/templates/web/${type}/${type}.tpl" \
+		"${template_dir}/${type}.tpl"
+	info "installed: ${template_dir}/${type}.tpl"
 }
 
-install_update_wrapper() {
-	local target="/usr/local/hestia/bin/v-update-web-domain-stat"
-	local original="/usr/local/hestia/bin/v-update-web-domain-stat.hestia-goaccess-original"
+install_hestia_wrapper() {
+	local command="$1"
+	local target="/usr/local/hestia/bin/${command}"
+	local original="/usr/local/hestia/bin/${command}.hestia-goaccess-original"
+	local wrapper="${repo_root}/patches/hestia/${command}.wrapper"
 
 	if grep -q 'hestia-goaccess managed wrapper' "${target}" 2>/dev/null; then
-		info "ok: v-update-web-domain-stat wrapper already installed"
+		install -m 0755 "${wrapper}" "${target}"
+		info "updated: ${command} wrapper"
 		return
 	fi
 
-	[[ -x "${target}" ]] || die "Hestia updater not found: ${target}"
+	[[ -x "${target}" ]] || die "Hestia command not found: ${target}"
 	if [[ ! -f "${original}" ]]; then
 		backup_file "${target}"
 		cp -p "${target}" "${original}"
 		info "preserved: ${original}"
 	fi
 
-	install -m 0755 "${repo_root}/patches/hestia/v-update-web-domain-stat.wrapper" "${target}"
+	install -m 0755 "${wrapper}" "${target}"
 	info "installed: ${target} wrapper"
 }
 
 install_hestia_dropdown_integration() {
-	info "installing Hestia dropdown integration for ${ADDON_STATS_TYPE}"
-	register_stats_system_type
-	install_stats_template
-	install_update_wrapper
+	local type
+
+	info "installing Hestia dropdown integration"
+	for type in "${ADDON_STATS_TYPES[@]}"; do
+		register_stats_system_type "${type}"
+		install_stats_template "${type}"
+	done
+	install_hestia_wrapper "v-update-web-domain-stat"
+	install_hestia_wrapper "v-delete-web-domain-stats"
 	info "ok: Hestia dropdown integration installed"
 }
 
@@ -319,7 +329,7 @@ Static reports are written to:
 Hestia serves the report at:
   http://DOMAIN/vstats/
 
-Realtime mode is available through the CLI. The Hestia dropdown is currently static-only.
+Realtime mode is available through the CLI and, when dropdown integration is enabled, through Hestia as goaccess-realtime.
 Hestia dropdown integration: ${WITH_DROPDOWN}
 POST
 }
