@@ -3,19 +3,25 @@
 ## Project
 `hestia-goaccess` is a standalone HestiaCP add-on that adds GoAccess web statistics, with an emphasis on realtime dashboards for selected domains.
 
-Planned public repository:
+Public repository:
 
 ```bash
-git remote add origin git@github.com:Wutime/hestia-goaccess.git
-git branch -M main
-git push -u origin main
+git@github.com:Wutime/hestia-goaccess.git
 ```
 
-Planned local workspace:
+Local workspace:
 
 ```text
 /opt/homebrew/var/www/hestia-goaccess
 ```
+
+Current public release:
+
+```text
+v1.0.0
+```
+
+The `v1.0.0` tag has been pushed to GitHub. The release is intended to be a normal release, not a pre-release. No binary assets are required; GitHub's source zip/tarball plus the documented `git clone` install path are sufficient for v1.
 
 ## Product Goal
 Provide a privacy-friendly alternative to Google Analytics for Hestia-hosted sites by using server access logs through GoAccess.
@@ -69,7 +75,7 @@ However, static report generation may still exist as:
 - a debugging mode
 - a future compatibility option
 
-Initial product direction should support both concepts, but prioritize a robust realtime implementation.
+The public v1 supports both concepts, with realtime explicitly opt-in per domain.
 
 Per-domain Hestia selector direction:
 - expose `awstats`, `goaccess-static`, and `goaccess-realtime` as separate stats choices where feasible
@@ -118,25 +124,25 @@ Because Hestia does not provide a stable full plugin API for replacing the stats
 - detect unsupported Hestia versions before applying changes
 
 ## Proposed CLI
-Provide a project-owned admin command, likely:
+The project-owned admin command is:
 
 ```bash
-hestia-goaccess install
-hestia-goaccess enable USER DOMAIN --mode realtime
+hestia-goaccess doctor [USER DOMAIN]
 hestia-goaccess enable USER DOMAIN --mode static
+hestia-goaccess enable USER DOMAIN --mode realtime [--ws-url URL]
 hestia-goaccess disable USER DOMAIN
-hestia-goaccess status
-hestia-goaccess repair
-hestia-goaccess uninstall
+hestia-goaccess status [USER DOMAIN]
+hestia-goaccess terminal [USER] DOMAIN
 ```
 
 Optional future commands:
 
 ```bash
 hestia-goaccess logs USER DOMAIN
-hestia-goaccess doctor
+hestia-goaccess repair
 hestia-goaccess upgrade
 hestia-goaccess list
+hestia-goaccess migrate-awstats --all --mode static
 ```
 
 The CLI should be the source of truth even if a Hestia UI integration is added later.
@@ -154,16 +160,17 @@ Recommended shape:
 - one domain-specific output HTML file under the Hestia stats directory
 - WebSocket endpoint proxied safely through Nginx/Hestia
 
-Example conceptual command:
+Current command shape:
 
 ```bash
 goaccess /path/to/access.log \
-  --config-file=/etc/hestia-goaccess/domains/USER/DOMAIN.conf \
   --real-time-html \
   --output=/home/USER/web/DOMAIN/stats/index.html \
+  --persist \
+  --restore \
+  --db-path=/var/lib/hestia-goaccess/USER/DOMAIN \
+  --keep-last=90
 ```
-
-Do not hardcode this as final syntax until tested against Hestia `1.9.4` logs and GoAccess package versions.
 
 Realtime support does not require Apache. It requires GoAccess realtime HTML output and a protected WebSocket route. Prefer Nginx-backed Hestia layouts first because WebSocket proxying is required and Hestia's Nginx templates already support per-domain include snippets. Apache-only realtime support should be detected and documented before it is promised.
 
@@ -192,7 +199,7 @@ Use systemd limits by default:
 
 Avoid creating a design where enabling many sites accidentally creates unbounded memory or CPU pressure.
 
-Startup catch-up parsing can be the expensive part. GoAccess `--persist` / `--restore` looked attractive but produced invalid restored DB files and a GoAccess crash in the Docker realtime pipeline, so keep it disabled for v1 until it is proven stable on supported real VPS targets.
+Startup catch-up parsing can be the expensive part. Static and realtime modes now use GoAccess `--persist`, `--restore`, `--db-path`, and `--keep-last` by default with a per-domain database under `/var/lib/hestia-goaccess/USER/DOMAIN` and a default rolling 90-day retention window. Switching between `goaccess-static` and `goaccess-realtime` preserves that database. Switching to non-GoAccess stats such as `awstats` or `none` intentionally removes hestia-goaccess-managed files for the domain.
 
 ## Privacy Defaults
 Default configuration should be privacy-friendly:
@@ -206,12 +213,13 @@ Default configuration should be privacy-friendly:
 Privacy defaults should be easy to override per domain. Prefer CLI flags and `/etc/hestia-goaccess/domains/USER/DOMAIN.conf` first; optional Hestia UI checkboxes can come later if the UI patch surface remains small and reversible.
 
 Realtime overhead defaults should also be conservative by default:
-- filter noisy dashboard paths such as `/vstats/` before GoAccess parses logs
+- parse the selected Hestia log file directly when `GOACCESS_IGNORE_PATHS` is empty
+- prevent `/vstats/` and `/vstats/ws/` from entering the domain access log by writing `stats/auth.conf_hestia_goaccess_accesslog_off` through Hestia's existing `stats/auth.conf*` include point
+- allow admins to set `GOACCESS_DISABLE_STATS_ACCESS_LOG=no` if they intentionally want stats dashboard traffic in the domain log
 - ignore common crawlers where GoAccess supports it safely
 - reduce noisy static asset reporting where practical
 - do not enable expensive DNS or GeoIP lookups by default
-- keep GoAccess realtime `--persist` / `--restore` disabled until it is proven stable across supported server targets
-- avoid repeatedly reparsing giant historical logs as a future hardening goal
+- use GoAccess persistence and restore with default `GOACCESS_KEEP_LAST=90`
 
 Global configuration should provide smart defaults in `/etc/hestia-goaccess/defaults.conf`. Per-domain configuration should be possible through CLI flags and `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`. A textarea or option block below Hestia's per-domain stats dropdown is desirable for realtime domains, especially for ignored paths, but should not block v1 if it makes installation or Hestia upgrade compatibility fragile.
 
@@ -240,13 +248,13 @@ Requirements:
 - avoid leaking full paths, credentials, query tokens, or private URLs
 
 ## Testing Strategy
-Do not test initial development on the live production Hestia server.
+The initial public release has already been validated through local Docker testing, a local Hestia pretend-VPS profile, and a live Hestia server pass on the supported Debian/Ubuntu layout. Future changes should repeat the narrowest useful test first, then broaden to Docker/Hestia/live validation based on risk.
 
 Recommended path:
-1. Build a local/dev project skeleton in `/opt/homebrew/var/www/hestia-goaccess`.
+1. Use syntax checks and focused local script tests for narrow shell changes.
 2. Use Docker or VM-based test environments for repeatable Hestia `1.9.4` installs.
-3. Also create a tiny disposable VPS for realistic Hestia testing, because Hestia is a full server control panel and local containers may not perfectly model systemd, Nginx, logs, permissions, and package behavior.
-4. Once confidence is high, install on the live server as the final production test and use that process to validate public installation instructions.
+3. Use a tiny disposable VPS for realistic Hestia testing when changes touch systemd, Nginx, permissions, package behavior, or installer rollback.
+4. Use the live server only after local/disposable validation and only for changes that genuinely need production confirmation.
 
 Docker is useful for:
 - installer idempotency checks
@@ -287,7 +295,7 @@ docker compose exec hestia-vps scripts/hestia-vps-install.sh
 
 Then open `https://panel.hestia-goaccess.localhost:8083/` with dev credentials `admin` / `admin`. This profile is heavier and may expose Docker Desktop/systemd limitations; keep it separate from the fast fixture service. The browser hostnames `hestia-goaccess.localhost` and `panel.hestia-goaccess.localhost` should point to `127.0.0.1` in local `/etc/hosts`; the container's internal Hestia hostname is `panel.hestia-goaccess.localhost` because Hestia requires a hostname with at least two dots. Use the `panel...` hostname and port `8083` for the Hestia panel so CSRF checks, cookies, and local certificate hostname all line up. Hestia is installed at runtime inside the container filesystem, so container restart preserves the panel but container recreation gives a fresh pretend VPS and requires rerunning the installer. After creating a local Hestia user/domain, use `scripts/install-hestia-mock-site.sh USER DOMAIN` inside the container to seed mock pages for cleaner GoAccess traffic tests.
 
-Current static prototype:
+Current CLI behavior:
 - `./install.sh [--yes] [--without-goaccess] [--upgrade-goaccess]`
 - `./install.sh`
 - `hestia-goaccess doctor [USER DOMAIN]`
@@ -296,9 +304,9 @@ Current static prototype:
 - `hestia-goaccess status [USER DOMAIN]`
 - `hestia-goaccess disable USER DOMAIN`
 
-Static prototype behavior writes `/home/USER/web/DOMAIN/stats/index.html` and records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`. Static reports are regenerated by Hestia's `webstats` queue or manual `v-update-web-domain-stat USER DOMAIN`. Static mode uses GoAccess persistence by default with a per-domain database under `/var/lib/hestia-goaccess/USER/DOMAIN` and `GOACCESS_KEEP_LAST=90`; it does not yet provide AWStats-style monthly/yearly archive pages.
+Static behavior writes `/home/USER/web/DOMAIN/stats/index.html` and records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`. Static reports are regenerated by Hestia's `webstats` queue or manual `v-update-web-domain-stat USER DOMAIN`. Static mode uses GoAccess persistence by default with a per-domain database under `/var/lib/hestia-goaccess/USER/DOMAIN` and `GOACCESS_KEEP_LAST=90`; it does not provide AWStats-style monthly/yearly archive pages.
 
-Installer prototype behavior:
+Installer behavior:
 - requires root
 - verifies HestiaCP `1.9.4+`
 - verifies Debian 11/12 or Ubuntu 22.04/24.04
@@ -306,7 +314,8 @@ Installer prototype behavior:
 - offers to install missing GoAccess from the official GoAccess Debian/Ubuntu repository
 - refuses an existing older GoAccess unless `--upgrade-goaccess` is explicit
 - installs the CLI to `/usr/local/bin/hestia-goaccess`
-- writes defaults to `/etc/hestia-goaccess/defaults.conf`
+- creates `/etc/hestia-goaccess/defaults.conf` on first install
+- preserves existing `/etc/hestia-goaccess/defaults.conf` values on reinstall and appends newly introduced defaults when needed
 - installs Hestia dropdown integration by default; use `--without-hestia-dropdown` only for CLI-only installs
 
 Dropdown integration behavior:
@@ -324,7 +333,7 @@ Dropdown integration behavior:
 - calls `hestia-goaccess disable USER DOMAIN` before falling through or deleting stats so realtime services and Nginx includes are removed
 - does not patch Hestia PHP UI labels; the dropdown values are `goaccess-static` and `goaccess-realtime`
 
-Current realtime prototype behavior:
+Current realtime behavior:
 - is available through CLI and Hestia dropdown after the standard install
 - runs one systemd service per enabled domain
 - service names use `hestia-goaccess-USER-SAFE_DOMAIN.service`
@@ -343,6 +352,8 @@ Current realtime prototype behavior:
 - records `HG_IGNORE_PATHS` in add-on state
 - records `HG_HTML_PREFS` in add-on state
 - records `HG_LOG_FORMAT` in add-on state
+- records `HG_DB_PATH` and `HG_KEEP_LAST` in add-on state
+- uses GoAccess `--persist`, `--restore`, `--db-path`, and `--keep-last` by default
 - defaults GoAccess HTML reports to `GOACCESS_HTML_PREFS='{"theme":"darkGray"}'`
 - defaults GoAccess parsing to `GOACCESS_LOG_FORMAT=COMBINED`, matching Hestia's default Apache/Nginx domain access logs
 - Docker test command uses `--ws-url ws://example.test:20080/vstats/ws/` because the browser reaches the vhost through the host-mapped port
@@ -354,11 +365,12 @@ Supplemental production validation profile:
 - Ubuntu 22.04.5 LTS
 - Nginx public frontend with Apache backend active
 - Hestia panel on `8083`
-- Hestia stats currently lists `none` and `awstats`
-- GoAccess not installed initially
+- Hestia initially listed `none` and `awstats`; the add-on installed `goaccess-static` and `goaccess-realtime`
+- GoAccess was installed from the official GoAccess Debian/Ubuntu repository during validation
 - Linux ephemeral port range observed as `32768-60999`, so default GoAccess realtime range `64000-64999` is suitable after listener checks
 - custom templates may be present; do not assume those customizations exist on customer servers
 - do not commit hostnames, public IPs, private users, or private domains from inventory output
+- validated switching `goaccess-static <> goaccess-realtime` preserves `/var/lib/hestia-goaccess/USER/DOMAIN` and restarts/stops the realtime service as expected
 
 ## Public Project Expectations
 The GitHub project should be structured for long-term public use and contribution.
@@ -431,47 +443,16 @@ Log format policy:
 - validate parsing in `hestia-goaccess doctor USER DOMAIN` before enabling reports
 - allow admins with custom Hestia log templates to override `GOACCESS_LOG_FORMAT` in `/etc/hestia-goaccess/defaults.conf`
 
-## Initial Milestones
-Milestone 1: Research and Skeleton
-- confirm Hestia `1.9.4` stats internals
-- confirm GoAccess package behavior on supported OS
-- create repository skeleton
-- add shellcheck/lint workflow
-- define config paths and service naming
+## Release State
+`v1.0.0` is the initial public release. The original research, static prototype, realtime prototype, Hestia dropdown integration, persistence, live validation, changelog, tag, and GitHub release preparation are complete.
 
-Milestone 2: Static Mode Prototype
-- generate a GoAccess report for one test domain
-- write output into Hestia stats path
-- validate Hestia stats auth behavior
-- confirm log format detection
-
-Milestone 3: Realtime Prototype
-- create per-domain systemd service
-- generate realtime HTML
-- proxy WebSocket safely
-- test service restart, reload, disable, uninstall
-- measure CPU/RAM on a test domain
-
-Milestone 4: Hestia Integration
-- add GoAccess as a selectable stats engine if feasible
-- implement repair/reapply
-- document Hestia files touched
-- test Hestia upgrade behavior where practical
-
-Milestone 5: Public Release
-- publish GitHub repository
-- write install docs
-- test on disposable VPS
-- install on live server only after review
-- update docs based on the live production installation experience
-
-## Open Questions
-- Exact patch/wrapper strategy for `v-update-web-domain-stat` and related queue behavior.
-- Whether Hestia stats auth protects the realtime WebSocket endpoint cleanly when routed through a dedicated Nginx include.
-- Whether to default realtime dashboards to anonymized IPs.
-- Whether per-domain GoAccess services should run as root, the Hestia user, or a dedicated `hestia-goaccess` user.
-- Exact GoAccess package feature matrix on Debian 11/12 and Ubuntu 22.04/24.04.
-- Whether Apache-only realtime support belongs in the first public release or should be explicitly static-only at first.
+Known future work:
+- add `hestia-goaccess repair` / reapply support
+- add an explicit AWStats migration command, likely static-first
+- broaden validation on a disposable VPS and additional stock Hestia template combinations
+- investigate Apache-only realtime support before promising it
+- consider optional Hestia UI controls for advanced per-domain settings only if the patch surface stays small and reversible
+- add formal automated tests beyond syntax checks and Docker smoke coverage
 
 Hestia services page direction:
 - do not add per-domain GoAccess realtime units to Hestia's global services page for v1

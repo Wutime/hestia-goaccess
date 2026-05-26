@@ -2,7 +2,7 @@
 
 Docker support is for development and customer evaluation before production rollout. It is not the recommended production deployment path for Hestia servers; production users should install the add-on on their actual Hestia VPS/server after reviewing the README and running `hestia-goaccess doctor`.
 
-The initial Docker harness should validate installer behavior, Hestia path detection, GoAccess command rendering, static report generation, and Nginx include generation. It is not a replacement for VPS testing because Hestia depends on real service management, cron, web server reloads, and production-like networking.
+The Docker harness validates installer behavior, Hestia path detection, GoAccess command rendering, static report generation, and Nginx include generation. It is not a replacement for VPS testing because Hestia depends on real service management, cron, web server reloads, and production-like networking.
 
 ## Quick Start
 

@@ -1,6 +1,6 @@
 # Maintainer Production Target
 
-This document intentionally avoids hostnames, public IPs, private usernames, and private domain names. It captures the maintainer's production server shape so the development harness can prioritize the environment that will be tested first.
+This document intentionally avoids hostnames, public IPs, private usernames, and private domain names. It captures the maintainer's production server shape used for the first live validation pass.
 
 Inventory date: 2026-05-26
 
@@ -18,9 +18,9 @@ Local Docker note: the maintainer machine currently cannot run `linux/amd64` con
 - Nginx public frontend is active
 - Apache is active as a backend
 - Hestia panel listens on `8083`
-- Example domain currently uses `STATS: awstats`
+- Example domains were used to validate `goaccess-static` and `goaccess-realtime`
 - Example domain uses a custom proxy template
-- GoAccess is not installed yet
+- GoAccess was installed from the official GoAccess Debian/Ubuntu repository during validation
 
 Observed versions:
 
@@ -39,14 +39,14 @@ The default GoAccess realtime range `64000-64999` does not overlap this host's e
 
 ## Hestia Stats
 
-Current Hestia web stats list:
+Initial Hestia web stats list:
 
 ```text
 none
 awstats
 ```
 
-The add-on install flow should add:
+The add-on install flow added:
 
 ```text
 goaccess-static
@@ -63,3 +63,12 @@ Preferred v1 behavior:
 - manage per-domain realtime units through systemd and the add-on CLI
 - avoid cluttering Hestia's global services UI with one entry per domain
 - consider one aggregate `hestia-goaccess` service or target later only if it provides clear operational value
+
+## Validation Notes
+
+- Installer completed on Ubuntu 22.04.5 / Hestia 1.9.4.
+- Missing GoAccess was installed as GoAccess 1.10.2 from the official GoAccess repository.
+- Hestia dropdown integration registered `goaccess-static` and `goaccess-realtime`.
+- Realtime mode worked with per-domain systemd services, local Nginx WebSocket proxying, and `/vstats/`.
+- Switching `goaccess-static <> goaccess-realtime` preserved the per-domain database under `/var/lib/hestia-goaccess/USER/DOMAIN`.
+- `GOACCESS_DISABLE_STATS_ACCESS_LOG=yes` kept new `/vstats/` and `/vstats/ws/` requests out of the domain access log.

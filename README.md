@@ -182,7 +182,7 @@ Hestia serves that report at the existing stats URL:
 http://DOMAIN/vstats/
 ```
 
-Planned commands:
+Future commands under consideration:
 
 ```bash
 hestia-goaccess repair

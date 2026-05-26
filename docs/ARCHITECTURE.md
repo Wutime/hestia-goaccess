@@ -1,6 +1,6 @@
 # Architecture Notes
 
-These notes capture the initial HestiaCP and GoAccess integration decisions before implementation.
+These notes capture the HestiaCP and GoAccess integration decisions for the public v1 release and future maintenance.
 
 ## Terminology
 
@@ -73,7 +73,7 @@ Static mode should support Nginx-only and Nginx-plus-Apache Hestia layouts first
 
 Static mode is also the initial migration target for existing AWStats domains. Any bulk migration command should require an explicit admin action, such as `hestia-goaccess migrate-awstats --all --mode static`, and should not silently convert domains during install.
 
-Current prototype behavior:
+Current static behavior:
 
 - `hestia-goaccess doctor [USER DOMAIN]` checks Hestia `1.9.4+`, GoAccess `1.10.2+`, domain existence, stats directory, readable access log, and GoAccess log-format compatibility.
 - `hestia-goaccess enable USER DOMAIN --mode static` reads `/var/log/apache2/domains/DOMAIN.log` when present, falling back to `/var/log/nginx/domains/DOMAIN.log`.
@@ -98,6 +98,8 @@ Current realtime behavior:
 - preselects GoAccess' shipped `darkGray` HTML theme through `GOACCESS_HTML_PREFS='{"theme":"darkGray"}'`
 - uses bounded systemd stop behavior so re-enable and uninstall do not hang on stale realtime processes
 - records the selected port, service unit, and WebSocket URL in add-on state
+- records the per-domain database path and retention window in add-on state
+- uses GoAccess persistence and restore by default
 - stops the realtime service and removes the Nginx include when Hestia switches the domain to another stats type or disables stats
 
 ## Terminal Dashboard
@@ -152,7 +154,8 @@ Recommended defaults:
 - use a deterministic unique local port per realtime domain
 - write the HTML report to Hestia's stats directory
 - set `--ws-url` to the public `/vstats/` WebSocket route with an explicit public port, such as `wss://DOMAIN:443/vstats/ws/`
-- keep GoAccess realtime `--persist` / `--restore` disabled until the shutdown/restore path is proven stable
+- use GoAccess `--persist` / `--restore` with a per-domain database under `/var/lib/hestia-goaccess/USER/DOMAIN`
+- keep a default rolling retention window through `GOACCESS_KEEP_LAST=90`
 - apply systemd resource controls such as `Nice=10`, `MemoryMax`, restart limits, and private temp
 
 Realtime mode must protect the HTML report and the WebSocket endpoint consistently.
@@ -245,12 +248,14 @@ Realtime mode should ship with conservative defaults because Hestia servers ofte
 
 Recommended v1 behavior:
 
-- filter the stats route itself, default `/vstats/`
+- parse the selected Hestia log directly by default
+- disable `/vstats/` access logging through Hestia's `stats/auth.conf*` include point by default
+- allow `GOACCESS_DISABLE_STATS_ACCESS_LOG=no` for admins who intentionally want dashboard traffic counted
+- filter custom ignored paths before GoAccess only when an administrator configures `GOACCESS_IGNORE_PATHS` or passes `--ignore-paths`
 - ignore common crawlers through GoAccess where available
 - exclude or hide static assets in reports where that reduces noise without changing the server log format
 - keep DNS and GeoIP lookups disabled unless the administrator opts in
-- keep realtime `--persist` / `--restore` disabled until it is proven stable across supported server targets
-- avoid repeatedly reparsing giant historical logs as a future hardening goal
+- use GoAccess persistence/restore and a default 90-day retention window to avoid repeatedly reparsing giant historical logs
 - keep systemd CPU, memory, IO, and privilege limits conservative
 
 Global defaults should be stored in `/etc/hestia-goaccess/defaults.conf`. Per-domain overrides should be stored in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf` and updated through the CLI first. A Hestia domain-page textarea for selected GoAccess options is desirable later, especially for ignored paths, but it should remain optional unless it can be implemented without broad PHP UI patching.
