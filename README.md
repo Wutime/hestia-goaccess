@@ -1,14 +1,14 @@
 # hestia-goaccess
 
-`hestia-goaccess` is a planned standalone HestiaCP add-on that adds GoAccess as a web statistics option for Hestia-hosted domains.
+`hestia-goaccess` is a standalone HestiaCP add-on that adds GoAccess as a web statistics option for Hestia-hosted domains.
 
 The goal is to give Hestia administrators a privacy-friendly alternative to AWStats, with both static report generation and realtime dashboards where the server layout can safely support them.
 
 ## Status
 
-This project is in prototype development. It has passed local Docker testing against a fresh Hestia `1.9.4` install, but it still needs a real VPS/live-server pilot before a public release.
+This project has passed local Docker testing against a fresh Hestia `1.9.4` install and is ready for live-server validation.
 
-For a live pilot, install during a quiet maintenance window, start with one low-risk domain, keep the terminal open, and run the uninstall command below if anything looks wrong.
+For the first live install, use one domain first and keep the rollback commands below nearby.
 
 Current target:
 
@@ -16,7 +16,7 @@ Current target:
 - Debian 11/12 and Ubuntu 22.04/24.04 LTS, matching Hestia's supported platforms
 - GoAccess 1.10.2+
 
-## Live Pilot Quick Start
+## Live Install Quick Start
 
 Run these commands as `root` on a Hestia server.
 
@@ -109,20 +109,20 @@ GoAccess documents install methods for many platforms, including Fedora, Arch, G
 
 For Debian/Ubuntu Hestia servers, the installer uses GoAccess' official Debian/Ubuntu repository when GoAccess is missing or when an administrator explicitly permits an upgrade. This is intentional because distro packages may lag behind the `GOACCESS_MIN_VERSION` baseline.
 
-## Planned Features
+## Features
 
 - Register GoAccess as a selectable Hestia web statistics engine.
 - Offer separate per-domain choices for static and realtime GoAccess reports.
 - Generate static GoAccess reports under Hestia's per-domain stats path.
 - Run optional realtime GoAccess dashboards for selected domains.
-- Protect dashboards using Hestia's existing statistics authorization where possible.
+- Works with Hestia's existing statistics URL and authorization model.
 - Default to privacy-preserving output, with documented per-domain overrides.
 - Detect unsupported server layouts before making changes.
 - Make install, repair, and uninstall operations idempotent and reversible.
 
 ## Command Reference
 
-The current installer prepares static GoAccess mode without patching Hestia core files:
+The installer prepares GoAccess CLI/static report support without changing Hestia's stats dropdown:
 
 ```bash
 sudo ./install.sh
@@ -140,7 +140,7 @@ For unattended Docker/dev testing:
 sudo ./install.sh --yes --with-hestia-dropdown
 ```
 
-Installer behavior today:
+Installer behavior:
 
 - verifies HestiaCP `1.9.4+`
 - verifies Debian 11/12 or Ubuntu 22.04/24.04
@@ -228,7 +228,7 @@ docker compose exec hestia-vps bash /workspace/scripts/install-hestia-mock-site.
 
 This creates pages such as `/pricing/`, `/product/tour/`, `/docs/start/`, and `/blog/post-1` through `/blog/post-20` so simulated traffic produces useful `200` responses instead of mostly `404`s.
 
-Realtime mode currently:
+Realtime mode:
 
 - runs one systemd service per enabled domain
 - binds GoAccess to `127.0.0.1`
@@ -282,18 +282,18 @@ hestia-goaccess enable USER DOMAIN --mode static --ignore-paths '/vstats/,/admin
 hestia-goaccess enable USER DOMAIN --mode realtime --ignore-paths '/vstats/,/admin'
 ```
 
-This is intentionally designed so a future Hestia UI field can expose the same setting without changing the underlying behavior.
+This is designed so a future Hestia UI field can expose the same setting without changing the underlying behavior.
 
 ## Configuration Defaults
 
-Configuration should stay simple for the first public release. The defaults are meant to be production-friendly for most customers:
+Configuration is intentionally simple. The defaults are meant to be production-friendly for most customers:
 
 - global smart defaults live in `/etc/hestia-goaccess/defaults.conf`
 - per-domain choices are recorded in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`
 - the Hestia domain page exposes the stats engine choice first
-- advanced per-domain controls should be CLI/config-file driven unless the Hestia UI patch remains small and reversible
+- advanced per-domain controls are CLI/config-file driven unless a future Hestia UI patch stays small and reversible
 
-Realtime defaults should favor low overhead on shared production servers. The intended defaults are:
+Realtime defaults favor low overhead on shared production servers:
 
 - filter `/vstats/` so GoAccess does not count its own dashboard
 - ignore common crawlers where GoAccess can do so safely
@@ -301,7 +301,7 @@ Realtime defaults should favor low overhead on shared production servers. The in
 - avoid expensive DNS/GeoIP behavior unless the administrator enables it
 - defer GoAccess `--persist` / `--restore` for realtime until it is proven stable across supported server targets
 
-A future Hestia UI textarea can expose selected per-domain options, especially ignored paths for realtime domains. That should not block v1 if it makes the installer more fragile.
+Per-domain CLI/config overrides cover the important controls today. A future Hestia UI textarea can expose selected options, especially ignored paths for realtime domains.
 
 Common adjustments administrators may consider:
 
@@ -336,7 +336,7 @@ That matches Hestia's default Apache and Nginx `combined` domain logs and keeps 
 sudo ./install.sh --with-hestia-dropdown
 ```
 
-This integration currently:
+This integration:
 
 - backs up Hestia files before changing them
 - appends `goaccess-static` and `goaccess-realtime` to `/usr/local/hestia/conf/hestia.conf`
@@ -354,9 +354,9 @@ The visible dropdown values are `goaccess-static` and `goaccess-realtime` rather
 
 ## Docker Testing
 
-Docker support is planned for development and evaluation, not as the first recommended production deployment. Hestia is a full server control panel and its installer expects a fresh server with root privileges, service management, web server ports, cron, and system paths.
+Docker support is for development and evaluation, not production deployment. Hestia is a full server control panel and its installer expects a fresh server with root privileges, service management, web server ports, cron, and system paths.
 
-The intended Docker setup is a test harness that can validate:
+The Docker setup is a test harness that can validate:
 
 - installer idempotency
 - Hestia file detection and patch checks
@@ -364,7 +364,7 @@ The intended Docker setup is a test harness that can validate:
 - Nginx include rendering
 - basic realtime WebSocket proxy behavior where the container can run the required services
 
-Final production validation should still happen on a disposable VPS before installing on a live server.
+Final release validation will include a disposable VPS pass after the first live-server validation.
 
 Development smoke test:
 
@@ -379,7 +379,7 @@ Local report URL after `docker compose up -d --build`:
 http://goaccess.localhost:18080/vstats/
 ```
 
-Experimental local Hestia profile:
+Local Hestia profile:
 
 ```bash
 docker compose --profile hestia up -d --build hestia-vps
@@ -400,7 +400,7 @@ The default development target should mirror the maintainer's production Hestia 
 
 ## GoAccess Baseline
 
-The installer should require GoAccess `1.10.2` or newer. If GoAccess is missing, install/doctor can offer to install it from GoAccess' official Debian/Ubuntu repository. If an older version is already installed, the safe default is to stop with a clear error and upgrade instructions unless the administrator explicitly asks the add-on to upgrade GoAccess.
+The installer requires GoAccess `1.10.2` or newer. If GoAccess is missing, the installer can install it from GoAccess' official Debian/Ubuntu repository. If an older version is already installed, the installer stops with a clear error and upgrade instructions unless the administrator explicitly asks the add-on to upgrade GoAccess.
 
 ## Security Direction
 
