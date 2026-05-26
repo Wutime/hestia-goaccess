@@ -270,6 +270,7 @@ Current static prototype:
 - `./install.sh --with-hestia-dropdown`
 - `hestia-goaccess doctor [USER DOMAIN]`
 - `hestia-goaccess enable USER DOMAIN --mode static`
+- `hestia-goaccess enable USER DOMAIN --mode realtime [--ws-url URL]`
 - `hestia-goaccess status [USER DOMAIN]`
 - `hestia-goaccess disable USER DOMAIN`
 
@@ -295,6 +296,19 @@ Optional dropdown integration behavior:
 - dispatches only `STATS='goaccess-static'` to `/usr/local/bin/hestia-goaccess enable USER DOMAIN --mode static`
 - falls through all other stats types to Hestia's original updater
 - does not patch Hestia PHP UI labels; the dropdown value is `goaccess-static`
+
+Current realtime prototype behavior:
+- is CLI-managed only; do not expose `goaccess-realtime` in Hestia's dropdown until Hestia change/delete lifecycle cleanup is implemented
+- runs one systemd service per enabled domain
+- service names use `hestia-goaccess-USER-SAFE_DOMAIN.service`
+- runs GoAccess as the Hestia user/group for the domain
+- binds GoAccess to `127.0.0.1`
+- allocates a port from `GOACCESS_PORT_RANGE`, default `64000-64999`
+- installs a per-domain Nginx include named `/home/USER/conf/web/DOMAIN/nginx.conf_hestia_goaccess_realtime`
+- proxies `/vstats/ws/` to the local GoAccess listener
+- writes persisted GoAccess DB files under `/var/lib/hestia-goaccess/USER/DOMAIN`
+- records `HG_PORT`, `HG_WS_URL`, and `HG_UNIT` in add-on state
+- Docker test command uses `--ws-url ws://example.test:20080/vstats/ws/` because the browser reaches the vhost through the host-mapped port
 
 Primary production target profile:
 - Ubuntu 22.04.5 LTS

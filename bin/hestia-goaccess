@@ -22,6 +22,10 @@ HESTIA_BIN="${HESTIA_BIN:-/usr/local/hestia/bin}"
 HESTIA_DATA="${HESTIA_DATA:-/usr/local/hestia/data}"
 STATE_DIR="${HESTIA_GOACCESS_STATE_DIR:-/etc/hestia-goaccess}"
 STATE_DOMAIN_DIR="${STATE_DIR}/domains"
+GOACCESS_DB_DIR="${HESTIA_GOACCESS_DB_DIR:-/var/lib/hestia-goaccess}"
+GOACCESS_RUN_DIR="${HESTIA_GOACCESS_RUN_DIR:-/run/hestia-goaccess}"
+GOACCESS_REALTIME_BIND="${GOACCESS_REALTIME_BIND:-127.0.0.1}"
+GOACCESS_REALTIME_WS_PATH="${GOACCESS_REALTIME_WS_PATH:-/vstats/ws/}"
 
 usage() {
 	cat <<'USAGE'
@@ -30,11 +34,12 @@ hestia-goaccess
 Commands:
   doctor [USER DOMAIN]
   enable USER DOMAIN --mode static
+  enable USER DOMAIN --mode realtime [--ws-url URL]
   disable USER DOMAIN
   status [USER DOMAIN]
   help
 
-Realtime mode is planned but not implemented yet.
+Realtime mode is experimental and currently CLI-managed.
 USAGE
 }
 
@@ -142,6 +147,18 @@ domain_stats_path() {
 	printf '/home/%s/web/%s/stats\n' "${user}" "${domain}"
 }
 
+domain_public_scheme() {
+	local line="$1"
+	local ssl
+
+	ssl="$(domain_field "${line}" "SSL")"
+	if [[ "${ssl}" == "yes" ]]; then
+		printf 'wss\n'
+	else
+		printf 'ws\n'
+	fi
+}
+
 domain_log_path() {
 	local domain="$1"
 	local apache_log="/var/log/apache2/domains/${domain}.log"
@@ -163,12 +180,31 @@ state_file() {
 	printf '%s/%s/%s.conf\n' "${STATE_DOMAIN_DIR}" "${user}" "${domain}"
 }
 
+service_name() {
+	local user="$1"
+	local domain="$2"
+	local safe_domain
+
+	safe_domain="${domain//[^A-Za-z0-9]/_}"
+	printf 'hestia-goaccess-%s-%s.service\n' "${user}" "${safe_domain}"
+}
+
+nginx_include_file() {
+	local user="$1"
+	local domain="$2"
+
+	printf '/home/%s/conf/web/%s/nginx.conf_hestia_goaccess_realtime\n' "${user}" "${domain}"
+}
+
 write_state() {
 	local user="$1"
 	local domain="$2"
 	local mode="$3"
 	local log_path="$4"
 	local report_path="$5"
+	local port="${6:-}"
+	local ws_url="${7:-}"
+	local unit="${8:-}"
 	local file
 
 	file="$(state_file "${user}" "${domain}")"
@@ -179,9 +215,20 @@ HG_DOMAIN='${domain}'
 HG_MODE='${mode}'
 HG_LOG_PATH='${log_path}'
 HG_REPORT_PATH='${report_path}'
+HG_PORT='${port}'
+HG_WS_URL='${ws_url}'
+HG_UNIT='${unit}'
 HG_UPDATED_AT='$(date -u +%Y-%m-%dT%H:%M:%SZ)'
 STATE
 	chmod 0644 "${file}"
+}
+
+state_value() {
+	local file="$1"
+	local key="$2"
+
+	[[ -f "${file}" ]] || return 1
+	sed -n "s/^${key}='\\([^']*\\)'$/\\1/p" "${file}" | head -n 1
 }
 
 doctor() {
@@ -258,11 +305,225 @@ enable_static() {
 	mv "${tmp_report}" "${report_path}"
 	chown "${user}:${user}" "${report_path}"
 	chmod 0644 "${report_path}"
+	stop_realtime_if_present "${user}" "${domain}"
 	write_state "${user}" "${domain}" "static" "${log_path}" "${report_path}"
 
 	info "enabled static GoAccess report for ${user}/${domain}"
 	info "report: ${report_path}"
 	info "url: /vstats/"
+}
+
+port_in_range() {
+	local port="$1"
+	local start="$2"
+	local end="$3"
+
+	[[ "${port}" =~ ^[0-9]+$ ]] || return 1
+	(( port >= start && port <= end ))
+}
+
+port_in_use_by_state() {
+	local port="$1"
+	local file
+	local current
+
+	if [[ -d "${STATE_DOMAIN_DIR}" ]]; then
+		while IFS= read -r file; do
+			current="$(state_value "${file}" "HG_PORT" || true)"
+			[[ "${current}" == "${port}" ]] && return 0
+		done < <(find "${STATE_DOMAIN_DIR}" -type f -name '*.conf' | sort)
+	fi
+
+	return 1
+}
+
+port_is_listening() {
+	local port="$1"
+
+	ss -ltn "sport = :${port}" 2>/dev/null | awk 'NR > 1 { found=1 } END { exit found ? 0 : 1 }'
+}
+
+allocate_port() {
+	local user="$1"
+	local domain="$2"
+	local file
+	local existing
+	local start
+	local end
+	local port
+
+	file="$(state_file "${user}" "${domain}")"
+	existing="$(state_value "${file}" "HG_PORT" || true)"
+	start="${GOACCESS_PORT_RANGE%-*}"
+	end="${GOACCESS_PORT_RANGE#*-}"
+
+	if port_in_range "${existing}" "${start}" "${end}"; then
+		printf '%s\n' "${existing}"
+		return
+	fi
+
+	for ((port = start; port <= end; port++)); do
+		if port_in_use_by_state "${port}"; then
+			continue
+		fi
+		if port_is_listening "${port}"; then
+			continue
+		fi
+		printf '%s\n' "${port}"
+		return
+	done
+
+	die "no available GoAccess realtime port in ${GOACCESS_PORT_RANGE}"
+}
+
+default_ws_url() {
+	local user="$1"
+	local domain="$2"
+	local line
+	local scheme
+
+	line="$(domain_line "${user}" "${domain}")"
+	scheme="$(domain_public_scheme "${line}")"
+	printf '%s://%s%s\n' "${scheme}" "${domain}" "${GOACCESS_REALTIME_WS_PATH}"
+}
+
+write_nginx_realtime_include() {
+	local user="$1"
+	local domain="$2"
+	local port="$3"
+	local include_file
+
+	include_file="$(nginx_include_file "${user}" "${domain}")"
+	cat > "${include_file}" <<NGINX
+location ~ ^/vstats/ws/?$ {
+	proxy_pass http://${GOACCESS_REALTIME_BIND}:${port};
+	proxy_http_version 1.1;
+	proxy_set_header Upgrade \$http_upgrade;
+	proxy_set_header Connection "Upgrade";
+	proxy_set_header Host \$host;
+	proxy_read_timeout 1h;
+	proxy_send_timeout 1h;
+}
+NGINX
+	chown "${user}:${user}" "${include_file}"
+	chmod 0644 "${include_file}"
+
+	nginx -t >/dev/null
+	systemctl reload nginx
+}
+
+remove_nginx_realtime_include() {
+	local user="$1"
+	local domain="$2"
+	local include_file
+
+	include_file="$(nginx_include_file "${user}" "${domain}")"
+	if [[ -f "${include_file}" ]]; then
+		rm -f "${include_file}"
+		nginx -t >/dev/null
+		systemctl reload nginx
+	fi
+}
+
+write_realtime_service() {
+	local user="$1"
+	local domain="$2"
+	local log_path="$3"
+	local report_path="$4"
+	local port="$5"
+	local ws_url="$6"
+	local unit="$7"
+	local unit_path="/etc/systemd/system/${unit}"
+	local db_path="${GOACCESS_DB_DIR}/${user}/${domain}"
+	local run_path="${GOACCESS_RUN_DIR}/${user}/${domain}"
+
+	install -d -m 0755 -o "${user}" -g "${user}" "$(dirname "${report_path}")"
+	if [[ -f "${report_path}" ]]; then
+		chown "${user}:${user}" "${report_path}"
+	fi
+	install -d -m 0750 -o "${user}" -g "${user}" "${db_path}" "${run_path}"
+
+	cat > "${unit_path}" <<UNIT
+[Unit]
+Description=hestia-goaccess realtime report for ${user}/${domain}
+After=network.target nginx.service
+
+[Service]
+Type=simple
+User=${user}
+Group=${user}
+WorkingDirectory=/home/${user}
+ExecStart=/usr/bin/goaccess ${log_path} --log-format=COMBINED --real-time-html --output=${report_path} --addr=${GOACCESS_REALTIME_BIND} --port=${port} --ws-url=${ws_url} --persist --restore --db-path=${db_path} --anonymize-ip --no-query-string --ignore-crawlers --html-report-title=${domain}\ GoAccess\ Realtime --no-progress
+Restart=on-failure
+RestartSec=5s
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=${db_path} ${run_path} $(dirname "${report_path}")
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+	chmod 0644 "${unit_path}"
+}
+
+stop_realtime_if_present() {
+	local user="$1"
+	local domain="$2"
+	local file
+	local unit
+
+	file="$(state_file "${user}" "${domain}")"
+	unit="$(state_value "${file}" "HG_UNIT" || true)"
+	if [[ -n "${unit}" ]] && systemctl list-unit-files "${unit}" >/dev/null 2>&1; then
+		systemctl disable --now "${unit}" >/dev/null 2>&1 || true
+		rm -f "/etc/systemd/system/${unit}"
+		systemctl daemon-reload
+	fi
+	remove_nginx_realtime_include "${user}" "${domain}"
+}
+
+enable_realtime() {
+	local user="$1"
+	local domain="$2"
+	local ws_url="$3"
+	local log_path
+	local stats_path
+	local report_path
+	local port
+	local unit
+
+	require_domain "${user}" "${domain}"
+	require_hestia_version
+	require_goaccess
+	command -v systemctl >/dev/null 2>&1 || die "systemctl is required for realtime mode"
+	command -v nginx >/dev/null 2>&1 || die "nginx is required for realtime WebSocket proxying"
+	command -v ss >/dev/null 2>&1 || die "ss is required for realtime port allocation"
+
+	log_path="$(domain_log_path "${domain}")"
+	stats_path="$(domain_stats_path "${user}" "${domain}")"
+	report_path="${stats_path}/index.html"
+	port="$(allocate_port "${user}" "${domain}")"
+	unit="$(service_name "${user}" "${domain}")"
+	[[ -n "${ws_url}" ]] || ws_url="$(default_ws_url "${user}" "${domain}")"
+
+	[[ -f "${log_path}" ]] || die "access log does not exist: ${log_path}"
+	[[ -r "${log_path}" ]] || die "access log is not readable: ${log_path}"
+
+	stop_realtime_if_present "${user}" "${domain}"
+	write_nginx_realtime_include "${user}" "${domain}" "${port}"
+	write_realtime_service "${user}" "${domain}" "${log_path}" "${report_path}" "${port}" "${ws_url}" "${unit}"
+	systemctl daemon-reload
+	systemctl enable --now "${unit}"
+	write_state "${user}" "${domain}" "realtime" "${log_path}" "${report_path}" "${port}" "${ws_url}" "${unit}"
+
+	info "enabled realtime GoAccess report for ${user}/${domain}"
+	info "report: ${report_path}"
+	info "url: /vstats/"
+	info "websocket: ${ws_url}"
+	info "service: ${unit}"
 }
 
 status_one() {
@@ -271,6 +532,9 @@ status_one() {
 	local line
 	local stats
 	local file
+	local port=""
+	local unit=""
+	local ws_url=""
 	local mode="disabled"
 	local HG_MODE=""
 	local MODE=""
@@ -284,9 +548,15 @@ status_one() {
 		# shellcheck disable=SC1090
 		source "${file}"
 		mode="${HG_MODE:-${MODE:-unknown}}"
+		port="${HG_PORT:-}"
+		unit="${HG_UNIT:-}"
+		ws_url="${HG_WS_URL:-}"
 	fi
 
 	info "${user}/${domain}: mode=${mode} hestia_stats='${stats}'"
+	if [[ -n "${port}" || -n "${unit}" || -n "${ws_url}" ]]; then
+		info "  realtime_port='${port}' service='${unit}' ws_url='${ws_url}'"
+	fi
 }
 
 status_all() {
@@ -295,8 +565,11 @@ status_all() {
 	local DOMAIN=""
 	local HG_DOMAIN=""
 	local HG_MODE=""
+	local HG_PORT=""
 	local HG_REPORT_PATH=""
+	local HG_UNIT=""
 	local HG_USER=""
+	local HG_WS_URL=""
 	local MODE=""
 	local REPORT_PATH=""
 
@@ -305,7 +578,7 @@ status_all() {
 			found="yes"
 			# shellcheck disable=SC1090
 			source "${file}"
-			info "${HG_USER:-${USER}}/${HG_DOMAIN:-${DOMAIN}}: mode=${HG_MODE:-${MODE}} report=${HG_REPORT_PATH:-${REPORT_PATH}}"
+			info "${HG_USER:-${USER}}/${HG_DOMAIN:-${DOMAIN}}: mode=${HG_MODE:-${MODE}} report=${HG_REPORT_PATH:-${REPORT_PATH}} port=${HG_PORT} service=${HG_UNIT} ws_url=${HG_WS_URL}"
 		done < <(find "${STATE_DOMAIN_DIR}" -type f -name '*.conf' | sort)
 	fi
 
@@ -320,6 +593,7 @@ disable_domain() {
 	require_domain "${user}" "${domain}"
 	file="$(state_file "${user}" "${domain}")"
 	if [[ -f "${file}" ]]; then
+		stop_realtime_if_present "${user}" "${domain}"
 		rm -f "${file}"
 		info "disabled hestia-goaccess state for ${user}/${domain}"
 	else
@@ -328,17 +602,25 @@ disable_domain() {
 	info "existing reports are left in place; remove the stats index manually if needed"
 }
 
-parse_mode() {
-	local mode=""
+parse_enable_options() {
+	ENABLE_MODE=""
+	WS_URL=""
 
 	while [[ "$#" -gt 0 ]]; do
 		case "$1" in
 			--mode)
 				shift
-				mode="${1:-}"
+				ENABLE_MODE="${1:-}"
 				;;
 			--mode=*)
-				mode="${1#--mode=}"
+				ENABLE_MODE="${1#--mode=}"
+				;;
+			--ws-url)
+				shift
+				WS_URL="${1:-}"
+				;;
+			--ws-url=*)
+				WS_URL="${1#--ws-url=}"
 				;;
 			*)
 				die "unknown enable option: $1"
@@ -347,14 +629,12 @@ parse_mode() {
 		shift
 	done
 
-	[[ -n "${mode}" ]] || die "enable requires --mode static"
-	[[ "${mode}" == "static" ]] || die "mode ${mode} is not implemented yet"
-	printf '%s\n' "${mode}"
+	[[ -n "${ENABLE_MODE}" ]] || die "enable requires --mode static or --mode realtime"
+	[[ "${ENABLE_MODE}" == "static" || "${ENABLE_MODE}" == "realtime" ]] || die "mode ${ENABLE_MODE} is not implemented yet"
 }
 
 main() {
 	local command="${1:-help}"
-	local mode
 
 	case "${command}" in
 		""|-h|--help|help)
@@ -367,9 +647,10 @@ main() {
 		enable)
 			shift
 			[[ "$#" -ge 3 ]] || die "usage: hestia-goaccess enable USER DOMAIN --mode static"
-			mode="$(parse_mode "${@:3}")"
-			case "${mode}" in
+			parse_enable_options "${@:3}"
+			case "${ENABLE_MODE}" in
 				static) enable_static "$1" "$2" ;;
+				realtime) enable_realtime "$1" "$2" "${WS_URL}" ;;
 			esac
 			;;
 		disable)

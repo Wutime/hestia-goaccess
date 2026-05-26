@@ -62,6 +62,7 @@ After install, the CLI can run a static GoAccess report for an existing Hestia d
 ```bash
 hestia-goaccess doctor [USER DOMAIN]
 hestia-goaccess enable USER DOMAIN --mode static
+hestia-goaccess enable USER DOMAIN --mode realtime [--ws-url URL]
 hestia-goaccess disable USER DOMAIN
 hestia-goaccess status [USER DOMAIN]
 ```
@@ -81,13 +82,35 @@ http://DOMAIN/vstats/
 Planned commands:
 
 ```bash
-hestia-goaccess enable USER DOMAIN --mode realtime
 hestia-goaccess repair
 hestia-goaccess migrate-awstats --all --mode static
 hestia-goaccess uninstall
 ```
 
-Realtime mode is planned as an explicit per-domain opt-in. Existing AWStats domains should only be migrated by an explicit administrator command, and the initial migration target should be static mode.
+Realtime mode is an explicit per-domain CLI opt-in in the current prototype. Existing AWStats domains should only be migrated by an explicit administrator command, and the initial migration target should be static mode.
+
+For local Docker testing, the browser sees the Hestia vhost through port `20080`, so pass an explicit WebSocket URL:
+
+```bash
+docker compose exec hestia-vps hestia-goaccess enable demo example.test --mode realtime --ws-url ws://example.test:20080/vstats/ws/
+```
+
+Then open:
+
+```text
+http://example.test:20080/vstats/
+```
+
+Realtime mode currently:
+
+- runs one systemd service per enabled domain
+- binds GoAccess to `127.0.0.1`
+- allocates a port from `64000-64999`
+- installs a per-domain Nginx include for `/vstats/ws/`
+- proxies the WebSocket through the same vhost
+- records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`
+
+Realtime is not yet exposed in the Hestia dropdown because switching away from realtime through the Hestia UI also needs lifecycle hooks to stop the systemd service cleanly.
 
 ## Hestia Dropdown Integration
 

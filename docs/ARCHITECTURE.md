@@ -79,6 +79,18 @@ Current prototype behavior:
 
 Without dropdown integration, Hestia can serve `/vstats/`, but the Edit Web Domain stats dropdown will not show `goaccess-static`. With dropdown integration enabled, `goaccess-static` is appended to `STATS_SYSTEM`, a matching Hestia stats template is installed, and `v-update-web-domain-stat` is wrapped so only `goaccess-static` dispatches to the add-on while AWStats and other future stats engines fall through to Hestia's original updater.
 
+Current realtime prototype behavior:
+
+- remains CLI-managed while lifecycle cleanup is being built
+- creates one systemd service per realtime-enabled domain
+- binds GoAccess to `127.0.0.1`
+- proxies `/vstats/ws/` from the domain's Nginx vhost to the local listener
+- writes realtime HTML to `/home/USER/web/DOMAIN/stats/index.html`
+- persists GoAccess data under `/var/lib/hestia-goaccess/USER/DOMAIN`
+- records the selected port, service unit, and WebSocket URL in add-on state
+
+`goaccess-realtime` should not be added to Hestia's dropdown until switching from realtime to another stats engine through Hestia also stops the service and removes the Nginx include.
+
 ## GoAccess Version Policy
 
 The v1 baseline is GoAccess `1.10.2` or newer. The installer and `doctor` command should:
