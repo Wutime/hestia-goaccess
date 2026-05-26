@@ -149,6 +149,7 @@ Realtime mode should run a per-domain GoAccess process managed by systemd.
 Recommended shape:
 - one service unit per enabled domain
 - service runs as the Hestia domain user with `adm` as a supplementary group so Debian/Ubuntu Hestia log directories can be traversed while per-domain log file permissions still apply
+- verify that exact realtime log access model before enabling a domain; do not mutate Hestia log permissions or add customer users to groups
 - one domain-specific GoAccess config file
 - one domain-specific output HTML file under the Hestia stats directory
 - WebSocket endpoint proxied safely through Nginx/Hestia

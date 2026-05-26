@@ -84,6 +84,7 @@ Current realtime behavior:
 - is available through CLI and Hestia dropdown after the standard install
 - creates one systemd service per realtime-enabled domain
 - runs the service as the Hestia domain user with `adm` as a supplementary group for Debian/Ubuntu log directory traversal
+- verifies realtime log readability with that service identity before enabling the domain; the installer does not change Hestia log ownership, directory modes, or customer user group membership
 - binds GoAccess to `127.0.0.1`
 - proxies `/vstats/ws/` from the domain's Nginx vhost to the local listener
 - sets GoAccess `--ws-url` with an explicit public port, such as `wss://DOMAIN:443/vstats/ws/`, because GoAccess' browser client only honors custom WebSocket URLs that include a port

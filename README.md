@@ -232,6 +232,7 @@ Realtime mode:
 
 - runs one systemd service per enabled domain
 - runs the service as the Hestia domain user with Debian/Ubuntu's `adm` supplementary group, so it can traverse Hestia log directories while per-domain log file permissions still limit access
+- verifies that log access model before enabling realtime; it does not change customer user groups or Hestia log permissions
 - binds GoAccess to `127.0.0.1`
 - allocates a port from `64000-64999`
 - installs a per-domain Nginx include for `/vstats/ws/`

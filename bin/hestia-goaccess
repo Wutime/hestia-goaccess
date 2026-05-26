@@ -349,6 +349,16 @@ check_log_format() {
 	)" || die "access log did not parse with GoAccess log format '${GOACCESS_LOG_FORMAT}': ${output}"
 }
 
+check_realtime_log_access() {
+	local user="$1"
+	local log_path="$2"
+
+	getent group adm >/dev/null || die "realtime mode requires the standard Debian/Ubuntu adm group to read Hestia log directories"
+	command -v setpriv >/dev/null 2>&1 || die "setpriv is required to verify realtime log access"
+	setpriv --reuid="${user}" --regid="${user}" --groups=adm test -r "${log_path}" ||
+		die "realtime service would not be able to read ${log_path} as ${user} with supplementary group adm"
+}
+
 doctor() {
 	local user="${1:-}"
 	local domain="${2:-}"
@@ -388,6 +398,10 @@ doctor() {
 		else
 			check_log_format "${log_path}"
 			info "ok: access log parses as GoAccess log format '${GOACCESS_LOG_FORMAT}'"
+		fi
+		if [[ "${stats}" == "goaccess-realtime" ]]; then
+			check_realtime_log_access "${user}" "${log_path}"
+			info "ok: realtime service log access verified for ${user} with supplementary group adm"
 		fi
 	fi
 }
@@ -680,6 +694,7 @@ enable_realtime() {
 
 	[[ -f "${log_path}" ]] || die "access log does not exist: ${log_path}"
 	[[ -r "${log_path}" ]] || die "access log is not readable: ${log_path}"
+	check_realtime_log_access "${user}" "${log_path}"
 
 	stop_realtime_if_present "${user}" "${domain}"
 	write_nginx_realtime_include "${user}" "${domain}" "${port}"
