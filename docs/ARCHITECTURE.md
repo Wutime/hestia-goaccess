@@ -184,6 +184,21 @@ The Docker setup should validate:
 
 Docker cannot replace a VPS test for systemd behavior, real Nginx reloads, TLS, Cloudflare proxying, or Hestia upgrade interactions.
 
+The primary development profile should follow [PRODUCTION_TARGET.md](PRODUCTION_TARGET.md), which captures the maintainer's sanitized production server shape.
+
+## Hestia Services Integration
+
+Hestia's server services page is a global service-management surface. It is useful for core daemons, but not a good fit for one GoAccess realtime unit per domain.
+
+For v1:
+
+- do not add per-domain GoAccess units to Hestia's global services page
+- expose status through `hestia-goaccess status`
+- manage realtime units through systemd and the add-on CLI
+- keep Hestia UI integration focused on the existing per-domain Web Statistics selector
+
+An aggregate `hestia-goaccess` service or systemd target can be considered later if it makes start/stop/status operations clearer without hiding per-domain isolation.
+
 ## Open Decisions
 
 - Exact storage format for per-domain privacy overrides.

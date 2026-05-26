@@ -26,15 +26,19 @@ if [[ -r /etc/os-release ]]; then
 fi
 
 print_section "Hestia"
-if [[ -r /etc/hestiacp/hestia.conf ]]; then
-	printf '\n### /etc/hestiacp/hestia.conf selected values\n'
-	grep -E '^(HESTIA|BIN|WEB_SYSTEM|WEB_BACKEND|PROXY_SYSTEM|STATS_SYSTEM|WEB_PORT|WEB_SSL_PORT|PROXY_PORT|PROXY_SSL_PORT|HOMEDIR)=' /etc/hestiacp/hestia.conf || true
-else
-	printf '\n### /etc/hestiacp/hestia.conf\nnot readable\n'
-fi
+for conf in /etc/hestiacp/hestia.conf /usr/local/hestia/conf/hestia.conf; do
+	if [[ -r "${conf}" ]]; then
+		printf '\n### %s selected values\n' "${conf}"
+		grep -E '^(export[[:space:]]+)?(HESTIA|BIN|WEB_SYSTEM|WEB_BACKEND|PROXY_SYSTEM|STATS_SYSTEM|WEB_PORT|WEB_SSL_PORT|PROXY_PORT|PROXY_SSL_PORT|HOMEDIR)=' "${conf}" || true
+	else
+		printf '\n### %s\nnot readable\n' "${conf}"
+	fi
+done
 
-if [[ -x /usr/local/hestia/bin/v-list-sys-hestia-updates ]]; then
-	run_if "Hestia updates/version" /usr/local/hestia/bin/v-list-sys-hestia-updates plain
+run_if "hestia package" dpkg-query -W hestia
+run_if "hestia apt policy" apt-cache policy hestia
+if [[ -x /usr/local/hestia/bin/v-list-sys-info ]]; then
+	run_if "Hestia system info" /usr/local/hestia/bin/v-list-sys-info json
 fi
 if [[ -x /usr/local/hestia/bin/v-list-web-stats ]]; then
 	run_if "Hestia web stats" /usr/local/hestia/bin/v-list-web-stats plain
@@ -45,6 +49,7 @@ run_if "nginx version" nginx -v
 run_if "apache version" apache2 -v
 run_if "goaccess version" goaccess --version
 run_if "systemctl nginx/apache status" systemctl is-active nginx apache2
+run_if "hestia services" /usr/local/hestia/bin/v-list-sys-services plain
 
 print_section "Ports"
 if [[ -r /proc/sys/net/ipv4/ip_local_port_range ]]; then
@@ -79,4 +84,3 @@ else
 	printf '\n### domain sample\n'
 	printf 'pass USER DOMAIN to include a specific domain inventory\n'
 fi
-

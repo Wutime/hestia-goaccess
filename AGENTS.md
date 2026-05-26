@@ -244,6 +244,15 @@ Use both if practical. Do not rely only on Docker before production release.
 
 Docker support should be framed as a test harness, not the primary production deployment model, because Hestia expects a fresh server with real service management.
 
+Primary production target profile:
+- Ubuntu 22.04.5 LTS
+- Nginx public frontend with Apache backend active
+- Hestia panel on `8083`
+- Hestia stats currently lists `none` and `awstats`
+- GoAccess not installed initially
+- Linux ephemeral port range observed as `32768-60999`, so default GoAccess realtime range `64000-64999` is suitable after listener checks
+- do not commit hostnames, public IPs, private users, or private domains from inventory output
+
 ## Public Project Expectations
 The GitHub project should be structured for long-term public use and contribution.
 
@@ -348,3 +357,8 @@ Milestone 5: Public Release
 - Whether per-domain GoAccess services should run as root, the Hestia user, or a dedicated `hestia-goaccess` user.
 - Exact GoAccess package feature matrix on Debian 11/12 and Ubuntu 22.04/24.04.
 - Whether Apache-only realtime support belongs in the first public release or should be explicitly static-only at first.
+
+Hestia services page direction:
+- do not add per-domain GoAccess realtime units to Hestia's global services page for v1
+- expose add-on and per-domain status through `hestia-goaccess status`
+- consider an aggregate service/target later only if it gives clear value
