@@ -27,7 +27,30 @@ Current target:
 
 ## Prototype Commands
 
-The current CLI can run a static GoAccess report for an existing Hestia domain without patching Hestia core files:
+The current installer prepares static GoAccess mode without patching Hestia core files:
+
+```bash
+sudo ./install.sh
+```
+
+For unattended Docker/dev testing:
+
+```bash
+sudo ./install.sh --yes
+```
+
+Installer behavior today:
+
+- verifies HestiaCP `1.9.4+`
+- verifies Debian 11/12 or Ubuntu 22.04/24.04
+- verifies GoAccess `1.10.2+`
+- offers to install GoAccess from the official GoAccess Debian/Ubuntu repository when GoAccess is missing
+- stops with a clear error if an older GoAccess is already installed, unless `--upgrade-goaccess` is passed
+- installs `hestia-goaccess` into `/usr/local/bin`
+- creates `/etc/hestia-goaccess`
+- leaves Hestia UI and core command files unchanged
+
+After install, the CLI can run a static GoAccess report for an existing Hestia domain:
 
 ```bash
 hestia-goaccess doctor [USER DOMAIN]
@@ -51,7 +74,6 @@ http://DOMAIN/vstats/
 Planned commands:
 
 ```bash
-hestia-goaccess install
 hestia-goaccess enable USER DOMAIN --mode realtime
 hestia-goaccess repair
 hestia-goaccess migrate-awstats --all --mode static

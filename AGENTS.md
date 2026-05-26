@@ -266,12 +266,24 @@ docker compose exec hestia-vps scripts/hestia-vps-install.sh
 Then open `https://panel.hestia-goaccess.localhost:8083/` with dev credentials `admin` / `admin`. This profile is heavier and may expose Docker Desktop/systemd limitations; keep it separate from the fast fixture service. The browser hostnames `hestia-goaccess.localhost` and `panel.hestia-goaccess.localhost` should point to `127.0.0.1` in local `/etc/hosts`; the container's internal Hestia hostname is `panel.hestia-goaccess.localhost` because Hestia requires a hostname with at least two dots. Use the `panel...` hostname and port `8083` for the Hestia panel so CSRF checks, cookies, and local certificate hostname all line up. Hestia is installed at runtime inside the container filesystem, so container restart preserves the panel but container recreation gives a fresh pretend VPS and requires rerunning the installer.
 
 Current static prototype:
+- `./install.sh [--yes] [--without-goaccess] [--upgrade-goaccess]`
 - `hestia-goaccess doctor [USER DOMAIN]`
 - `hestia-goaccess enable USER DOMAIN --mode static`
 - `hestia-goaccess status [USER DOMAIN]`
 - `hestia-goaccess disable USER DOMAIN`
 
 Static prototype behavior writes `/home/USER/web/DOMAIN/stats/index.html` and records state in `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`. It does not patch Hestia core files or add `goaccess-static` to `STATS_SYSTEM` yet.
+
+Installer prototype behavior:
+- requires root
+- verifies HestiaCP `1.9.4+`
+- verifies Debian 11/12 or Ubuntu 22.04/24.04
+- verifies GoAccess `1.10.2+`
+- offers to install missing GoAccess from the official GoAccess Debian/Ubuntu repository
+- refuses an existing older GoAccess unless `--upgrade-goaccess` is explicit
+- installs the CLI to `/usr/local/bin/hestia-goaccess`
+- writes defaults to `/etc/hestia-goaccess/defaults.conf`
+- leaves Hestia core/UI files unchanged
 
 Primary production target profile:
 - Ubuntu 22.04.5 LTS

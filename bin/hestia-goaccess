@@ -1,9 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck disable=SC1091
-source "${repo_root}/conf/defaults.conf"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/.." && pwd)"
+
+if [[ -f "${repo_root}/conf/defaults.conf" ]]; then
+	# shellcheck disable=SC1091
+	source "${repo_root}/conf/defaults.conf"
+elif [[ -f /etc/hestia-goaccess/defaults.conf ]]; then
+	# shellcheck disable=SC1091
+	source /etc/hestia-goaccess/defaults.conf
+elif [[ -f /usr/local/share/hestia-goaccess/conf/defaults.conf ]]; then
+	# shellcheck disable=SC1091
+	source /usr/local/share/hestia-goaccess/conf/defaults.conf
+else
+	printf 'hestia-goaccess: defaults.conf not found\n' >&2
+	exit 1
+fi
 
 HESTIA_BIN="${HESTIA_BIN:-/usr/local/hestia/bin}"
 HESTIA_DATA="${HESTIA_DATA:-/usr/local/hestia/data}"
