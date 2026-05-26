@@ -23,9 +23,6 @@ Options:
   --yes                Run without confirmation prompts.
   --without-goaccess   Do not install GoAccess if it is missing.
   --upgrade-goaccess   Allow the installer to upgrade an old GoAccess package.
-  --with-hestia-dropdown
-                       Register goaccess-static and goaccess-realtime in Hestia's Web Statistics dropdown.
-                       This is the default and is kept for compatibility with older docs.
   --without-hestia-dropdown
                        Install the CLI and GoAccess support without changing Hestia's dropdown.
   --prefix PATH        Install the hestia-goaccess command under PATH/bin.
@@ -82,9 +79,6 @@ parse_args() {
 				;;
 			--upgrade-goaccess)
 				UPGRADE_GOACCESS="yes"
-				;;
-			--with-hestia-dropdown)
-				WITH_DROPDOWN="yes"
 				;;
 			--without-hestia-dropdown)
 				WITH_DROPDOWN="no"
