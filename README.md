@@ -55,6 +55,15 @@ The intended Docker setup is a test harness that can validate:
 
 Final production validation should still happen on a disposable VPS before installing on a live server.
 
+Development smoke test:
+
+```bash
+docker compose up -d --build
+docker compose exec dev scripts/dev-smoke.sh
+```
+
+The default development target should mirror the maintainer's production Hestia server where possible. Use `scripts/collect-hestia-inventory.sh` for read-only inventory before changing production systems.
+
 ## Security Direction
 
 Statistics pages can expose sensitive traffic data. The add-on should not make dashboards public by default. Realtime mode must protect both the HTML report and the WebSocket endpoint, bind GoAccess listeners locally where possible, and avoid leaking raw query strings unless an administrator opts in.
