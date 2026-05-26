@@ -98,7 +98,7 @@ docker compose exec hestia-vps scripts/hestia-vps-install.sh
 Panel URL:
 
 ```text
-https://hestia-goaccess.localhost:18083/
+https://panel.hestia-goaccess.localhost:18083/
 ```
 
 Development login:
@@ -124,6 +124,7 @@ Add the Hestia hostname to local `/etc/hosts`:
 
 ```text
 127.0.0.1 hestia-goaccess.localhost
+127.0.0.1 panel.hestia-goaccess.localhost
 ```
 
-The container's internal Hestia hostname is `panel.hestia-goaccess.localhost` because the Hestia installer requires a hostname with at least two dots. Use `hestia-goaccess.localhost` from the browser for the pretend VPS.
+The container's internal Hestia hostname is `panel.hestia-goaccess.localhost` because the Hestia installer requires a hostname with at least two dots. Use `panel.hestia-goaccess.localhost` for the Hestia panel so Hestia's CSRF checks, cookies, and local certificate hostname all line up.
