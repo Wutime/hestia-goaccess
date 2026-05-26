@@ -8,10 +8,10 @@ usage() {
 hestia-goaccess-filter-log [--follow] LOG_FILE
 
 Reads a web access log and writes entries to stdout, excluding configured URL
-paths so GoAccess does not count its own dashboard traffic.
+paths before GoAccess parses them.
 
 Set HESTIA_GOACCESS_IGNORE_PATHS to a comma or whitespace separated list.
-Default: /vstats/
+Default: no paths ignored.
 USAGE
 }
 
@@ -40,9 +40,6 @@ filter_log() {
 	awk '
 		BEGIN {
 			raw = ENVIRON["HESTIA_GOACCESS_IGNORE_PATHS"]
-			if (raw == "") {
-				raw = "/vstats/"
-			}
 			count = split(raw, configured, /[[:space:],]+/)
 			for (i = 1; i <= count; i++) {
 				path = configured[i]

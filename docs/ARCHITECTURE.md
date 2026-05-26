@@ -66,7 +66,7 @@ Static mode should be the safest initial mode:
 - regenerated when Hestia runs `v-update-sys-queue webstats`, or when an administrator manually runs `v-update-web-domain-stat USER DOMAIN`
 - uses GoAccess `--persist`, `--restore`, `--db-path`, and `--keep-last` by default with a per-domain DB under `/var/lib/hestia-goaccess/USER/DOMAIN`
 - defaults to `GOACCESS_KEEP_LAST=90`, creating a rolling 90-day dataset rather than AWStats-style monthly/yearly archive pages
-- parses the selected Hestia log directly when ignored path filtering is disabled; otherwise filters ignored paths before passing data to GoAccess
+- parses the selected Hestia log directly by default; if an administrator configures ignored paths, the add-on filters those paths before passing data to GoAccess
 - output written to `/home/USER/web/DOMAIN/stats/index.html`
 
 Static mode should support Nginx-only and Nginx-plus-Apache Hestia layouts first. Apache-only behavior should be detected and documented if not supported in the first implementation.
@@ -94,7 +94,7 @@ Current realtime behavior:
 - sets GoAccess `--ws-url` with an explicit public port, such as `wss://DOMAIN:443/vstats/ws/`, because GoAccess' browser client only honors custom WebSocket URLs that include a port
 - uses a concrete Hestia/Nginx redirect target, such as `www.DOMAIN`, as the public WebSocket host when the domain redirects to that host
 - writes realtime HTML to `/home/USER/web/DOMAIN/stats/index.html`
-- filters `/vstats/` by default before GoAccess parses logs
+- disables `/vstats/` access logging through Hestia's stats include point so GoAccess can parse the selected log directly by default
 - preselects GoAccess' shipped `darkGray` HTML theme through `GOACCESS_HTML_PREFS='{"theme":"darkGray"}'`
 - uses bounded systemd stop behavior so re-enable and uninstall do not hang on stale realtime processes
 - records the selected port, service unit, and WebSocket URL in add-on state
@@ -114,7 +114,7 @@ hestia-goaccess DOMAIN
 
 `hestia-goaccess DOMAIN` resolves the Hestia user from the current shell login. Domain users with SSH access can use it directly only if the Hestia server grants them read access to their domain log. Treat that as layout-dependent, not guaranteed.
 
-GoAccess does not provide a general `--ignore-path` option. Static and realtime modes therefore use `scripts/hestia-goaccess-filter-log` to pre-filter access logs. The current default is `/vstats/`, and the CLI accepts comma or whitespace separated overrides through `--ignore-paths`. A future Hestia UI textarea can map directly to that setting.
+GoAccess does not provide a general `--ignore-path` option. Static and realtime modes parse the selected Hestia log directly by default, and the add-on prevents `/vstats/` dashboard traffic from entering the log by writing `stats/auth.conf_hestia_goaccess_accesslog_off` with `access_log off;`. If an administrator configures ignored paths, the add-on uses `scripts/hestia-goaccess-filter-log` to pre-filter access logs. The CLI accepts comma or whitespace separated overrides through `--ignore-paths`; a future Hestia UI textarea can map directly to that setting.
 
 ## Access Log Format
 

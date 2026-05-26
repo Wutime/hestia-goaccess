@@ -33,7 +33,7 @@ fi
 GOACCESS_FILTER_LOG="${HESTIA_GOACCESS_FILTER_LOG:-${GOACCESS_FILTER_LOG:-${DEFAULT_GOACCESS_FILTER_LOG}}}"
 GOACCESS_REALTIME_RUNNER="${HESTIA_GOACCESS_REALTIME_RUNNER:-${GOACCESS_REALTIME_RUNNER:-${DEFAULT_GOACCESS_REALTIME_RUNNER}}}"
 GOACCESS_LOG_FORMAT="${HESTIA_GOACCESS_LOG_FORMAT:-${GOACCESS_LOG_FORMAT:-COMBINED}}"
-GOACCESS_IGNORE_PATHS="${HESTIA_GOACCESS_IGNORE_PATHS:-${GOACCESS_IGNORE_PATHS:-/vstats/}}"
+GOACCESS_IGNORE_PATHS="${HESTIA_GOACCESS_IGNORE_PATHS:-${GOACCESS_IGNORE_PATHS:-}}"
 GOACCESS_HTML_PREFS="${HESTIA_GOACCESS_HTML_PREFS:-${GOACCESS_HTML_PREFS:-{\"theme\":\"darkGray\"}}"
 GOACCESS_DB_ROOT="${HESTIA_GOACCESS_DB_ROOT:-${GOACCESS_DB_ROOT:-/var/lib/hestia-goaccess}}"
 GOACCESS_KEEP_LAST="${HESTIA_GOACCESS_KEEP_LAST:-${GOACCESS_KEEP_LAST:-90}}"
@@ -307,6 +307,39 @@ nginx_loads_include_file() {
 	nginx -T 2>/dev/null | grep -F "# configuration file ${include_file}:" >/dev/null
 }
 
+stats_accesslog_off_file() {
+	local user="$1"
+	local domain="$2"
+
+	printf '/home/%s/web/%s/stats/auth.conf_hestia_goaccess_accesslog_off\n' "${user}" "${domain}"
+}
+
+write_stats_accesslog_off() {
+	local user="$1"
+	local domain="$2"
+	local stats_path
+	local file
+
+	stats_path="$(domain_stats_path "${user}" "${domain}")"
+	file="$(stats_accesslog_off_file "${user}" "${domain}")"
+	install -d -m 0755 -o "${user}" -g "${user}" "${stats_path}"
+	cat > "${file}" <<'NGINX'
+# hestia-goaccess: prevent stats dashboard traffic from polluting domain access logs.
+access_log off;
+NGINX
+	chown "${user}:${user}" "${file}"
+	chmod 0644 "${file}"
+}
+
+remove_stats_accesslog_off() {
+	local user="$1"
+	local domain="$2"
+	local file
+
+	file="$(stats_accesslog_off_file "${user}" "${domain}")"
+	rm -f "${file}"
+}
+
 validate_nginx_realtime_include_loaded() {
 	local user="$1"
 	local domain="$2"
@@ -486,6 +519,7 @@ enable_static() {
 	[[ -f "${log_path}" ]] || die "access log does not exist: ${log_path}"
 	[[ -r "${log_path}" ]] || die "access log is not readable: ${log_path}"
 	install -d -m 0755 -o "${user}" -g "${user}" "${stats_path}"
+	write_stats_accesslog_off "${user}" "${domain}"
 	install -d -m 0750 -o "${user}" -g "${user}" "${db_path}"
 	persist_args=(--persist --db-path="${db_path}" --keep-last="${GOACCESS_KEEP_LAST}")
 	if goaccess_db_has_data "${db_path}"; then
@@ -757,6 +791,7 @@ cleanup_domain_artifacts() {
 	report_path="$(state_value "${file}" "HG_REPORT_PATH" || printf '/home/%s/web/%s/stats/index.html\n' "${user}" "${domain}")"
 
 	stop_realtime_if_present "${user}" "${domain}"
+	remove_stats_accesslog_off "${user}" "${domain}"
 	rm -rf "${db_path}" "${GOACCESS_RUN_DIR:?}/${user:?}/${domain:?}"
 	rm -f "${report_path}" "${file}"
 	rmdir "${GOACCESS_DB_ROOT}/${user}" 2>/dev/null || true
@@ -797,6 +832,7 @@ enable_realtime() {
 	check_realtime_log_access "${user}" "${log_path}"
 
 	stop_realtime_if_present "${user}" "${domain}"
+	write_stats_accesslog_off "${user}" "${domain}"
 	write_nginx_realtime_include "${user}" "${domain}" "${port}"
 	write_realtime_service "${user}" "${domain}" "${log_path}" "${report_path}" "${port}" "${ws_url}" "${unit}" "${db_path}"
 	systemctl daemon-reload
@@ -947,12 +983,20 @@ terminal_dashboard() {
 	info "Press q to quit."
 	sleep 1
 
-	HESTIA_GOACCESS_IGNORE_PATHS="${ignore_paths}" "${GOACCESS_FILTER_LOG}" --follow "${log_path}" |
-		goaccess - \
+	if ignore_paths_empty "${ignore_paths}"; then
+		goaccess "${log_path}" \
 			--log-format="${log_format}" \
 			--anonymize-ip \
 			--no-query-string \
 			--ignore-crawlers
+	else
+		HESTIA_GOACCESS_IGNORE_PATHS="${ignore_paths}" "${GOACCESS_FILTER_LOG}" --follow "${log_path}" |
+			goaccess - \
+				--log-format="${log_format}" \
+				--anonymize-ip \
+				--no-query-string \
+				--ignore-crawlers
+	fi
 }
 
 parse_enable_options() {
