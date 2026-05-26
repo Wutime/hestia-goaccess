@@ -244,6 +244,18 @@ Use both if practical. Do not rely only on Docker before production release.
 
 Docker support should be framed as a test harness, not the primary production deployment model, because Hestia expects a fresh server with real service management.
 
+Local Docker development command:
+
+```bash
+docker compose up -d --build
+```
+
+Use this after code changes because the Docker image copies the repository into `/workspace` at build time instead of bind-mounting the checkout. The local fixture report should then be available at:
+
+```text
+http://hestia-goaccess.localhost:18080/vstats/
+```
+
 Primary production target profile:
 - Ubuntu 22.04.5 LTS
 - Nginx public frontend with Apache backend active
