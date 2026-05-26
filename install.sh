@@ -9,7 +9,7 @@ PREFIX="/usr/local"
 INSTALL_GOACCESS="yes"
 UPGRADE_GOACCESS="no"
 ASSUME_YES="no"
-WITH_DROPDOWN="no"
+WITH_DROPDOWN="yes"
 ADDON_STATS_TYPES=("goaccess-static" "goaccess-realtime")
 
 usage() {
@@ -17,7 +17,7 @@ usage() {
 hestia-goaccess installer
 
 Usage:
-  ./install.sh [--yes] [--without-goaccess] [--upgrade-goaccess] [--with-hestia-dropdown] [--prefix /usr/local]
+  ./install.sh [--yes] [--without-goaccess] [--upgrade-goaccess] [--without-hestia-dropdown] [--prefix /usr/local]
 
 Options:
   --yes                Run without confirmation prompts.
@@ -25,11 +25,14 @@ Options:
   --upgrade-goaccess   Allow the installer to upgrade an old GoAccess package.
   --with-hestia-dropdown
                        Register goaccess-static and goaccess-realtime in Hestia's Web Statistics dropdown.
+                       This is the default and is kept for compatibility with older docs.
+  --without-hestia-dropdown
+                       Install the CLI and GoAccess support without changing Hestia's dropdown.
   --prefix PATH        Install the hestia-goaccess command under PATH/bin.
   -h, --help           Show this help.
 
-By default this installer does not patch Hestia's stats dropdown. Use
---with-hestia-dropdown to install the reversible Hestia integration.
+By default this installer installs the reversible Hestia dropdown integration.
+Use --without-hestia-dropdown for CLI-only installs.
 USAGE
 }
 
@@ -82,6 +85,9 @@ parse_args() {
 				;;
 			--with-hestia-dropdown)
 				WITH_DROPDOWN="yes"
+				;;
+			--without-hestia-dropdown)
+				WITH_DROPDOWN="no"
 				;;
 			--prefix)
 				shift

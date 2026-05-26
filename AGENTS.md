@@ -279,7 +279,7 @@ Then open `https://panel.hestia-goaccess.localhost:8083/` with dev credentials `
 
 Current static prototype:
 - `./install.sh [--yes] [--without-goaccess] [--upgrade-goaccess]`
-- `./install.sh --with-hestia-dropdown`
+- `./install.sh`
 - `hestia-goaccess doctor [USER DOMAIN]`
 - `hestia-goaccess enable USER DOMAIN --mode static`
 - `hestia-goaccess enable USER DOMAIN --mode realtime [--ws-url URL]`
@@ -297,9 +297,9 @@ Installer prototype behavior:
 - refuses an existing older GoAccess unless `--upgrade-goaccess` is explicit
 - installs the CLI to `/usr/local/bin/hestia-goaccess`
 - writes defaults to `/etc/hestia-goaccess/defaults.conf`
-- leaves Hestia core/UI files unchanged unless `--with-hestia-dropdown` is used
+- installs Hestia dropdown integration by default; use `--without-hestia-dropdown` only for CLI-only installs
 
-Optional dropdown integration behavior:
+Dropdown integration behavior:
 - appends `goaccess-static` and `goaccess-realtime` to `/usr/local/hestia/conf/hestia.conf` `STATS_SYSTEM`
 - installs `/usr/local/hestia/data/templates/web/goaccess-static/goaccess-static.tpl`
 - installs `/usr/local/hestia/data/templates/web/goaccess-realtime/goaccess-realtime.tpl`
@@ -315,7 +315,7 @@ Optional dropdown integration behavior:
 - does not patch Hestia PHP UI labels; the dropdown values are `goaccess-static` and `goaccess-realtime`
 
 Current realtime prototype behavior:
-- is available through CLI and Hestia dropdown after `--with-hestia-dropdown`
+- is available through CLI and Hestia dropdown after the standard install
 - runs one systemd service per enabled domain
 - service names use `hestia-goaccess-USER-SAFE_DOMAIN.service`
 - runs GoAccess as the Hestia user/group for the domain

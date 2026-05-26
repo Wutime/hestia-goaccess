@@ -75,13 +75,13 @@ Current prototype behavior:
 - `hestia-goaccess enable USER DOMAIN --mode static` reads `/var/log/apache2/domains/DOMAIN.log` when present, falling back to `/var/log/nginx/domains/DOMAIN.log`.
 - Static reports are generated directly to `/home/USER/web/DOMAIN/stats/index.html`.
 - Generated report state is recorded under `/etc/hestia-goaccess/domains/USER/DOMAIN.conf`.
-- Hestia core dropdown integration is optional via `./install.sh --with-hestia-dropdown`.
+- Hestia core dropdown integration is installed by default and can be skipped with `./install.sh --without-hestia-dropdown`.
 
-Without dropdown integration, Hestia can serve `/vstats/`, but the Edit Web Domain stats dropdown will not show GoAccess options. With dropdown integration enabled, `goaccess-static` and `goaccess-realtime` are appended to `STATS_SYSTEM`, matching Hestia stats templates are installed, and Hestia's stats update/delete commands are wrapped so GoAccess values dispatch to the add-on while AWStats and future stats engines fall through to Hestia's original commands.
+Without dropdown integration, Hestia can serve `/vstats/`, but the Edit Web Domain stats dropdown will not show GoAccess options. With standard dropdown integration enabled, `goaccess-static` and `goaccess-realtime` are appended to `STATS_SYSTEM`, matching Hestia stats templates are installed, and Hestia's stats update/delete commands are wrapped so GoAccess values dispatch to the add-on while AWStats and future stats engines fall through to Hestia's original commands.
 
 Current realtime behavior:
 
-- is available through CLI and Hestia dropdown after `--with-hestia-dropdown`
+- is available through CLI and Hestia dropdown after the standard install
 - creates one systemd service per realtime-enabled domain
 - binds GoAccess to `127.0.0.1`
 - proxies `/vstats/ws/` from the domain's Nginx vhost to the local listener

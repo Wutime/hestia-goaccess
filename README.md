@@ -28,16 +28,16 @@ git clone https://github.com/Wutime/hestia-goaccess.git
 cd hestia-goaccess
 ```
 
-Install with Hestia dropdown integration:
+Install the add-on:
 
 ```bash
-./install.sh --with-hestia-dropdown
+./install.sh
 ```
 
 For a non-interactive install:
 
 ```bash
-./install.sh --yes --with-hestia-dropdown
+./install.sh --yes
 ```
 
 The installer will:
@@ -122,22 +122,22 @@ For Debian/Ubuntu Hestia servers, the installer uses GoAccess' official Debian/U
 
 ## Command Reference
 
-The installer prepares GoAccess CLI/static report support without changing Hestia's stats dropdown:
+The installer prepares GoAccess support and adds `goaccess-static` and `goaccess-realtime` to Hestia's per-domain Web Statistics dropdown:
 
 ```bash
 sudo ./install.sh
 ```
 
-To also make `goaccess-static` and `goaccess-realtime` appear in Hestia's per-domain Web Statistics dropdown:
-
-```bash
-sudo ./install.sh --with-hestia-dropdown
-```
-
 For unattended Docker/dev testing:
 
 ```bash
-sudo ./install.sh --yes --with-hestia-dropdown
+sudo ./install.sh --yes
+```
+
+For CLI-only installs that leave Hestia's dropdown untouched:
+
+```bash
+sudo ./install.sh --without-hestia-dropdown
 ```
 
 Installer behavior:
@@ -149,8 +149,8 @@ Installer behavior:
 - stops with a clear error if an older GoAccess is already installed, unless `--upgrade-goaccess` is passed
 - installs `hestia-goaccess` into `/usr/local/bin`
 - creates `/etc/hestia-goaccess`
-- leaves Hestia UI and core command files unchanged unless `--with-hestia-dropdown` is used
-- with `--with-hestia-dropdown`, adds `goaccess-static` and `goaccess-realtime` to `STATS_SYSTEM`, installs Hestia stats templates, and wraps Hestia stats update/delete commands with backed-up fallbacks to Hestia's original commands
+- adds `goaccess-static` and `goaccess-realtime` to `STATS_SYSTEM`, installs Hestia stats templates, and wraps Hestia stats update/delete commands with backed-up fallbacks to Hestia's original commands
+- leaves Hestia UI and core command files unchanged when `--without-hestia-dropdown` is used
 
 After install, the CLI can run a static GoAccess report for an existing Hestia domain:
 
@@ -330,10 +330,10 @@ That matches Hestia's default Apache and Nginx `combined` domain logs and keeps 
 
 ## Hestia Dropdown Integration
 
-`goaccess-static` and `goaccess-realtime` appear in Hestia's Web Statistics dropdown only after the optional dropdown integration is installed:
+`goaccess-static` and `goaccess-realtime` appear in Hestia's Web Statistics dropdown after the standard install:
 
 ```bash
-sudo ./install.sh --with-hestia-dropdown
+sudo ./install.sh
 ```
 
 This integration:
