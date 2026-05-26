@@ -65,8 +65,23 @@ docker compose exec dev scripts/dev-smoke.sh
 Local report URL after `docker compose up -d --build`:
 
 ```text
-http://hestia-goaccess.localhost:18080/vstats/
+http://goaccess.localhost:18080/vstats/
 ```
+
+Experimental local Hestia profile:
+
+```bash
+docker compose --profile hestia up -d --build hestia-vps
+docker compose exec hestia-vps scripts/hestia-vps-install.sh
+```
+
+Then open:
+
+```text
+https://hestia-goaccess.localhost:18083/
+```
+
+The Hestia profile installs Hestia at runtime inside the container filesystem. Restarting the container preserves the installed panel, while recreating it gives you a fresh pretend VPS and requires rerunning the installer.
 
 The default development target should mirror the maintainer's production Hestia server where possible. Use `scripts/collect-hestia-inventory.sh` for read-only inventory before changing production systems.
 

@@ -253,8 +253,17 @@ docker compose up -d --build
 Use this after code changes because the Docker image copies the repository into `/workspace` at build time instead of bind-mounting the checkout. The local fixture report should then be available at:
 
 ```text
-http://hestia-goaccess.localhost:18080/vstats/
+http://goaccess.localhost:18080/vstats/
 ```
+
+Experimental local Hestia VPS profile:
+
+```bash
+docker compose --profile hestia up -d --build hestia-vps
+docker compose exec hestia-vps scripts/hestia-vps-install.sh
+```
+
+Then open `https://hestia-goaccess.localhost:18083/` with dev credentials `admin` / `HestiaGoAccess123!`. This profile is heavier and may expose Docker Desktop/systemd limitations; keep it separate from the fast fixture service. The browser hostname `hestia-goaccess.localhost` should point to `127.0.0.1` in local `/etc/hosts`; the container's internal Hestia hostname is `panel.hestia-goaccess.localhost` because Hestia requires a hostname with at least two dots. Hestia is installed at runtime inside the container filesystem, so container restart preserves the panel but container recreation gives a fresh pretend VPS and requires rerunning the installer.
 
 Primary production target profile:
 - Ubuntu 22.04.5 LTS

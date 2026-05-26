@@ -38,4 +38,4 @@ test -s "${report}"
 grep -q "example.test GoAccess Smoke" "${report}"
 
 echo "dev smoke passed: ${report}"
-echo "report URL: http://hestia-goaccess.localhost:18080/vstats/"
+echo "report URL: http://goaccess.localhost:18080/vstats/"

@@ -11,6 +11,8 @@ Inventory date: 2026-05-26
 - x86_64
 - HestiaCP installed under `/usr/local/hestia`
 
+Local Docker note: the maintainer machine currently cannot run `linux/amd64` containers under Docker Desktop (`exec format error`). The local Hestia pretend-VPS profile therefore runs on the host Docker architecture, while production parity for x86_64 still requires either enabling amd64 emulation or using a disposable VPS. Hestia's installer requires a hostname with at least two dots, so the local profile uses internal hostname `panel.hestia-goaccess.localhost` and browser URL `https://hestia-goaccess.localhost:18083/`.
+
 ## Web Stack
 
 - Nginx public frontend is active
@@ -61,4 +63,3 @@ Preferred v1 behavior:
 - manage per-domain realtime units through systemd and the add-on CLI
 - avoid cluttering Hestia's global services UI with one entry per domain
 - consider one aggregate `hestia-goaccess` service or target later only if it provides clear operational value
-

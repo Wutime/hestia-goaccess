@@ -17,13 +17,13 @@ The image copies the repository into `/workspace` at build time so it works even
 The container runs the smoke test and starts Nginx automatically. Open:
 
 ```text
-http://hestia-goaccess.localhost:18080/vstats/
+http://goaccess.localhost:18080/vstats/
 ```
 
 On most modern systems, `*.localhost` resolves to loopback automatically. If it does not, add this to your local `/etc/hosts`:
 
 ```text
-127.0.0.1 hestia-goaccess.localhost
+127.0.0.1 goaccess.localhost
 ```
 
 Run the smoke test manually:
@@ -78,3 +78,52 @@ The inventory should be saved outside public commits if it contains domain names
 - ephemeral port range
 - current listening ports
 - representative domain stats/auth settings
+
+## Hestia VPS Profile
+
+The `hestia-vps` Compose profile is an experimental pretend-VPS container. It uses Ubuntu 22.04 with systemd and attempts to install real Hestia with Nginx + Apache, matching the maintainer production shape more closely than the fast fixture.
+
+Start the container:
+
+```bash
+docker compose --profile hestia up -d --build hestia-vps
+```
+
+Install Hestia inside it:
+
+```bash
+docker compose exec hestia-vps scripts/hestia-vps-install.sh
+```
+
+Panel URL:
+
+```text
+https://hestia-goaccess.localhost:18083/
+```
+
+Development login:
+
+```text
+admin
+HestiaGoAccess123!
+```
+
+This profile is intentionally separate from the fast `dev` service. It may expose Docker Desktop/systemd limitations; if it does, use the failure to decide whether local Docker is sufficient or a disposable VPS is needed for the next level of testing.
+
+Hestia is installed at runtime inside the container filesystem. Restarting the container preserves the installed panel:
+
+```bash
+docker compose --profile hestia restart hestia-vps
+```
+
+Recreating the container gives you a fresh pretend VPS and requires rerunning `scripts/hestia-vps-install.sh`.
+
+On Apple Silicon, this profile uses the native Docker architecture unless Docker Desktop is configured for amd64 emulation. The maintainer production server is x86_64, so a disposable VPS remains the final parity target.
+
+Add the Hestia hostname to local `/etc/hosts`:
+
+```text
+127.0.0.1 hestia-goaccess.localhost
+```
+
+The container's internal Hestia hostname is `panel.hestia-goaccess.localhost` because the Hestia installer requires a hostname with at least two dots. Use `hestia-goaccess.localhost` from the browser for the pretend VPS.
