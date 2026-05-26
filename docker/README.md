@@ -98,7 +98,7 @@ docker compose exec hestia-vps scripts/hestia-vps-install.sh
 Panel URL:
 
 ```text
-https://panel.hestia-goaccess.localhost:18083/
+https://panel.hestia-goaccess.localhost:8083/
 ```
 
 Development login:

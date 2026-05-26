@@ -55,7 +55,7 @@ cat <<INFO
 Hestia install attempted.
 
 Panel URL:
-  https://panel.hestia-goaccess.localhost:18083/
+  https://panel.hestia-goaccess.localhost:8083/
 
 Internal Hestia hostname:
   ${hostname}

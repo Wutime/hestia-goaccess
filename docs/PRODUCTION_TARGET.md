@@ -11,7 +11,7 @@ Inventory date: 2026-05-26
 - x86_64
 - HestiaCP installed under `/usr/local/hestia`
 
-Local Docker note: the maintainer machine currently cannot run `linux/amd64` containers under Docker Desktop (`exec format error`). The local Hestia pretend-VPS profile therefore runs on the host Docker architecture, while production parity for x86_64 still requires either enabling amd64 emulation or using a disposable VPS. Hestia's installer requires a hostname with at least two dots, so the local profile uses internal hostname and browser panel URL `https://panel.hestia-goaccess.localhost:18083/`.
+Local Docker note: the maintainer machine currently cannot run `linux/amd64` containers under Docker Desktop (`exec format error`). The local Hestia pretend-VPS profile therefore runs on the host Docker architecture, while production parity for x86_64 still requires either enabling amd64 emulation or using a disposable VPS. Hestia's installer requires a hostname with at least two dots, so the local profile uses internal hostname and browser panel URL `https://panel.hestia-goaccess.localhost:8083/`.
 
 ## Web Stack
 

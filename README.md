@@ -78,7 +78,7 @@ docker compose exec hestia-vps scripts/hestia-vps-install.sh
 Then open:
 
 ```text
-https://panel.hestia-goaccess.localhost:18083/
+https://panel.hestia-goaccess.localhost:8083/
 ```
 
 The Hestia profile installs Hestia at runtime inside the container filesystem. Restarting the container preserves the installed panel, while recreating it gives you a fresh pretend VPS and requires rerunning the installer. Use the `panel.hestia-goaccess.localhost` hostname for the Hestia panel so Hestia's CSRF checks, cookies, and local certificate hostname all line up.
