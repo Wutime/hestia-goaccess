@@ -2,7 +2,7 @@
 set -euo pipefail
 
 admin_user="${HESTIA_ADMIN_USER:-admin}"
-admin_password="${HESTIA_ADMIN_PASSWORD:-HestiaGoAccess123!}"
+admin_password="${HESTIA_ADMIN_PASSWORD:-admin}"
 hostname="${HESTIA_HOSTNAME:-panel.hestia-goaccess.localhost}"
 email="${HESTIA_EMAIL:-admin@example.test}"
 

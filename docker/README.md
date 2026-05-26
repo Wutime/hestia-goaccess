@@ -105,7 +105,7 @@ Development login:
 
 ```text
 admin
-HestiaGoAccess123!
+admin
 ```
 
 This profile is intentionally separate from the fast `dev` service. It may expose Docker Desktop/systemd limitations; if it does, use the failure to decide whether local Docker is sufficient or a disposable VPS is needed for the next level of testing.
