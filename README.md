@@ -6,9 +6,7 @@ The goal is to give Hestia administrators a privacy-friendly alternative to AWSt
 
 ## Status
 
-This project has passed local Docker testing against a fresh Hestia `1.9.4` install and is ready for live-server validation.
-
-For the first live install, use one domain first and keep the rollback commands below nearby.
+This project has passed local Docker testing against a fresh Hestia `1.9.4` install and live Hestia validation on the supported Debian/Ubuntu server layout.
 
 Supported platform:
 
@@ -99,7 +97,7 @@ To uninstall the add-on and remove dropdown integration:
 /usr/local/share/hestia-goaccess/uninstall.sh --remove-hestia-dropdown --remove-state
 ```
 
-The uninstall command leaves the system `goaccess` package and generated report files in place. Remove those manually only if you are sure nothing else uses them.
+The uninstall command leaves the system `goaccess` package in place. It removes hestia-goaccess state, managed services, managed includes, persisted GoAccess databases, and generated reports known to hestia-goaccess when `--remove-state` is used.
 
 ## Supported OS And GoAccess Install Policy
 
@@ -149,6 +147,7 @@ Installer behavior:
 - stops with a clear error if an older GoAccess is already installed, unless `--upgrade-goaccess` is passed
 - installs `hestia-goaccess` into `/usr/local/bin`
 - creates `/etc/hestia-goaccess`
+- preserves existing `/etc/hestia-goaccess/defaults.conf` values on reinstall and appends newly introduced defaults when needed
 - adds `goaccess-static` and `goaccess-realtime` to `STATS_SYSTEM`, installs Hestia stats templates, and wraps Hestia stats update/delete commands with backed-up fallbacks to Hestia's original commands
 - leaves Hestia UI and core command files unchanged when `--without-hestia-dropdown` is used
 
@@ -191,6 +190,19 @@ hestia-goaccess migrate-awstats --all --mode static
 ```
 
 Realtime mode is an explicit per-domain opt-in. Existing AWStats domains should only be migrated by an explicit administrator command, and the initial migration target should be static mode.
+
+### Switching Modes
+
+Domains can switch between `goaccess-static` and `goaccess-realtime` through Hestia's normal Web Statistics control or the Hestia CLI:
+
+```bash
+/usr/local/hestia/bin/v-change-web-domain-stats USER DOMAIN goaccess-static
+/usr/local/hestia/bin/v-change-web-domain-stats USER DOMAIN goaccess-realtime
+```
+
+Switching between the two GoAccess modes preserves the per-domain GoAccess database under `/var/lib/hestia-goaccess/USER/DOMAIN`. Switching from `goaccess-realtime` to `goaccess-static` stops the realtime systemd service and keeps the static report available at `/vstats/`. Switching back to `goaccess-realtime` starts the per-domain service again and reuses the same persisted data.
+
+Switching a domain away from GoAccess to `awstats` or `none` intentionally removes hestia-goaccess-managed files for that domain.
 
 To uninstall the add-on while also removing Hestia dropdown integration and add-on state:
 
