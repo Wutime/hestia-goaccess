@@ -83,8 +83,10 @@ Current realtime behavior:
 
 - is available through CLI and Hestia dropdown after the standard install
 - creates one systemd service per realtime-enabled domain
+- runs the service as the Hestia domain user with `adm` as a supplementary group for Debian/Ubuntu log directory traversal
 - binds GoAccess to `127.0.0.1`
 - proxies `/vstats/ws/` from the domain's Nginx vhost to the local listener
+- sets GoAccess `--ws-url` with an explicit public port, such as `wss://DOMAIN:443/vstats/ws/`, because GoAccess' browser client only honors custom WebSocket URLs that include a port
 - writes realtime HTML to `/home/USER/web/DOMAIN/stats/index.html`
 - filters `/vstats/` by default before GoAccess parses logs
 - preselects GoAccess' shipped `darkGray` HTML theme through `GOACCESS_HTML_PREFS='{"theme":"darkGray"}'`
@@ -118,7 +120,7 @@ The add-on default is:
 GOACCESS_LOG_FORMAT=COMBINED
 ```
 
-Static and realtime report generation pass this to GoAccess as `--log-format="${GOACCESS_LOG_FORMAT}"`. The doctor command should parse-test the selected domain log before report generation. If an administrator has custom Hestia templates with a non-combined log format, they can override `GOACCESS_LOG_FORMAT` in `/etc/hestia-goaccess/defaults.conf`.
+Static and realtime report generation pass this to GoAccess as `--log-format="${GOACCESS_LOG_FORMAT}"`. If both Apache and Nginx Hestia domain logs exist, the add-on selects the active non-empty log and prefers the newest non-empty log when both have data. The doctor command should parse-test the selected domain log before report generation. If an administrator has custom Hestia templates with a non-combined log format, they can override `GOACCESS_LOG_FORMAT` in `/etc/hestia-goaccess/defaults.conf`.
 
 ## GoAccess Version Policy
 
@@ -143,7 +145,7 @@ Recommended defaults:
 - bind the GoAccess WebSocket listener to `127.0.0.1`
 - use a deterministic unique local port per realtime domain
 - write the HTML report to Hestia's stats directory
-- set `--ws-url` to the public `/vstats/` WebSocket route
+- set `--ws-url` to the public `/vstats/` WebSocket route with an explicit public port, such as `wss://DOMAIN:443/vstats/ws/`
 - keep GoAccess realtime `--persist` / `--restore` disabled until the shutdown/restore path is proven stable
 - apply systemd resource controls such as `Nice=10`, `MemoryMax`, restart limits, and private temp
 

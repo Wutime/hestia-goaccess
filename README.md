@@ -231,10 +231,12 @@ This creates pages such as `/pricing/`, `/product/tour/`, `/docs/start/`, and `/
 Realtime mode:
 
 - runs one systemd service per enabled domain
+- runs the service as the Hestia domain user with Debian/Ubuntu's `adm` supplementary group, so it can traverse Hestia log directories while per-domain log file permissions still limit access
 - binds GoAccess to `127.0.0.1`
 - allocates a port from `64000-64999`
 - installs a per-domain Nginx include for `/vstats/ws/`
 - proxies the WebSocket through the same vhost
+- writes the public WebSocket URL with an explicit port, for example `wss://DOMAIN:443/vstats/ws/`, so GoAccess' browser client uses the proxied route
 - ignores `/vstats/` by default so GoAccess does not count its own report traffic
 - preselects GoAccess' shipped `darkGray` HTML theme by default
 - uses a bounded systemd stop timeout so re-enable and uninstall do not hang on stale realtime processes
@@ -267,7 +269,7 @@ hestia-goaccess DOMAIN
 
 These commands use the same parser defaults as the managed reports: `/vstats/` filtering, `COMBINED` log format, anonymized IPs, no query strings, and crawler ignoring. If the domain has already been enabled by `hestia-goaccess`, the terminal command also reuses that domain's recorded ignored paths and log format.
 
-If the domain user's SSH account cannot read the access log, use the `root` form above or ask the server administrator to confirm domain log permissions. Hestia layouts may use `/var/log/apache2/domains/DOMAIN.log` or `/var/log/nginx/domains/DOMAIN.log`; `hestia-goaccess doctor USER DOMAIN` checks the log path used by the add-on.
+If the domain user's SSH account cannot read the access log, use the `root` form above or ask the server administrator to confirm domain log permissions. Hestia layouts may use `/var/log/apache2/domains/DOMAIN.log` or `/var/log/nginx/domains/DOMAIN.log`; when both exist, hestia-goaccess uses the active non-empty log, and `hestia-goaccess doctor USER DOMAIN` shows the log path selected by the add-on.
 
 Static and realtime modes both pre-filter logs before sending them to GoAccess. The default ignored path list is:
 

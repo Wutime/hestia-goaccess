@@ -148,6 +148,7 @@ Realtime mode should run a per-domain GoAccess process managed by systemd.
 
 Recommended shape:
 - one service unit per enabled domain
+- service runs as the Hestia domain user with `adm` as a supplementary group so Debian/Ubuntu Hestia log directories can be traversed while per-domain log file permissions still apply
 - one domain-specific GoAccess config file
 - one domain-specific output HTML file under the Hestia stats directory
 - WebSocket endpoint proxied safely through Nginx/Hestia
@@ -330,6 +331,7 @@ Current realtime prototype behavior:
 - binds GoAccess to `127.0.0.1`
 - allocates a port from `GOACCESS_PORT_RANGE`, default `64000-64999`
 - installs a per-domain Nginx include named `/home/USER/conf/web/DOMAIN/nginx.conf_hestia_goaccess_realtime`
+- sets `--ws-url` with an explicit public port such as `wss://DOMAIN:443/vstats/ws/`; GoAccess' browser client may ignore custom WebSocket URLs without a port and fall back to the internal listener port
 - proxies `/vstats/ws/` to the local GoAccess listener
 - filters ignored paths before GoAccess parses logs; default is `/vstats/`
 - supports comma or whitespace separated ignore paths through `--ignore-paths` or `HESTIA_GOACCESS_IGNORE_PATHS`
@@ -421,6 +423,7 @@ GoAccess dependency policy:
 Log format policy:
 - do not change Hestia's Nginx or Apache access log formats for v1
 - consume the existing per-domain access log with GoAccess `--log-format="${GOACCESS_LOG_FORMAT}"`
+- when both Apache and Nginx Hestia domain logs exist, select the active non-empty log and prefer the newest non-empty log when both have data
 - default `GOACCESS_LOG_FORMAT=COMBINED`, which matches Hestia's generated `combined` access logs and AWStats `LogFormat=1`
 - validate parsing in `hestia-goaccess doctor USER DOMAIN` before enabling reports
 - allow admins with custom Hestia log templates to override `GOACCESS_LOG_FORMAT` in `/etc/hestia-goaccess/defaults.conf`

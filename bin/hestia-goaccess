@@ -206,8 +206,22 @@ domain_log_path() {
 	local domain="$1"
 	local apache_log="/var/log/apache2/domains/${domain}.log"
 	local nginx_log="/var/log/nginx/domains/${domain}.log"
+	local apache_mtime
+	local nginx_mtime
 
-	if [[ -f "${apache_log}" ]]; then
+	if [[ -s "${apache_log}" && ! -s "${nginx_log}" ]]; then
+		printf '%s\n' "${apache_log}"
+	elif [[ -s "${nginx_log}" && ! -s "${apache_log}" ]]; then
+		printf '%s\n' "${nginx_log}"
+	elif [[ -s "${apache_log}" && -s "${nginx_log}" ]]; then
+		apache_mtime="$(stat -c %Y "${apache_log}")"
+		nginx_mtime="$(stat -c %Y "${nginx_log}")"
+		if ((nginx_mtime > apache_mtime)); then
+			printf '%s\n' "${nginx_log}"
+		else
+			printf '%s\n' "${apache_log}"
+		fi
+	elif [[ -f "${apache_log}" ]]; then
 		printf '%s\n' "${apache_log}"
 	elif [[ -f "${nginx_log}" ]]; then
 		printf '%s\n' "${nginx_log}"
@@ -496,6 +510,7 @@ default_ws_url() {
 	local domain="$2"
 	local line
 	local scheme
+	local public_port
 	local url
 
 	line="$(domain_line "${user}" "${domain}")"
@@ -506,7 +521,12 @@ default_ws_url() {
 		printf '%s\n' "${url}"
 		return
 	fi
-	printf '%s://%s%s\n' "${scheme}" "${domain}" "${GOACCESS_REALTIME_WS_PATH}"
+	if [[ "${scheme}" == "wss" ]]; then
+		public_port="443"
+	else
+		public_port="80"
+	fi
+	printf '%s://%s:%s%s\n' "${scheme}" "${domain}" "${public_port}" "${GOACCESS_REALTIME_WS_PATH}"
 }
 
 write_nginx_realtime_include() {
@@ -591,6 +611,7 @@ After=network.target nginx.service
 Type=simple
 User=${user}
 Group=${user}
+SupplementaryGroups=adm
 WorkingDirectory=/home/${user}
 Environment="HESTIA_GOACCESS_IGNORE_PATHS=${escaped_ignore_paths}"
 Environment="HESTIA_GOACCESS_HTML_PREFS=${escaped_html_prefs}"
