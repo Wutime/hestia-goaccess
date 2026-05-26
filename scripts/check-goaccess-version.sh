@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=../conf/defaults.conf
+# shellcheck disable=SC1091
 source "${repo_root}/conf/defaults.conf"
 
 version_ge() {
@@ -19,7 +19,7 @@ if ! command -v goaccess >/dev/null 2>&1; then
 	exit 1
 fi
 
-version="$(goaccess --version | sed -n 's/^GoAccess - \([0-9][0-9.]*\).*/\1/p' | head -n 1)"
+version="$(goaccess --version | sed -n 's/^GoAccess - \([0-9][0-9.]*[0-9]\).*/\1/p' | head -n 1)"
 if [[ -z "${version}" ]]; then
 	printf 'unable to determine goaccess version from: %s\n' "$(goaccess --version | head -n 1)" >&2
 	exit 1
@@ -31,4 +31,3 @@ if ! version_ge "${version}" "${GOACCESS_MIN_VERSION}"; then
 fi
 
 printf 'goaccess %s satisfies minimum %s\n' "${version}" "${GOACCESS_MIN_VERSION}"
-

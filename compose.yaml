@@ -5,8 +5,6 @@ services:
       dockerfile: docker/dev/Dockerfile
     image: wutime/hestia-goaccess-dev:local
     working_dir: /workspace
-    volumes:
-      - .:/workspace
     command: scripts/dev-server.sh
     ports:
       - "18080:80"

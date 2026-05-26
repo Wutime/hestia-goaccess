@@ -16,7 +16,7 @@ bash -n "${repo_root}/bin/hestia-goaccess"
 bash -n "${repo_root}/scripts/check-goaccess-version.sh"
 
 if command -v shellcheck >/dev/null 2>&1; then
-	shellcheck \
+	shellcheck -x \
 		"${repo_root}/install.sh" \
 		"${repo_root}/uninstall.sh" \
 		"${repo_root}/bin/hestia-goaccess" \

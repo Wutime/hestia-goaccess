@@ -12,6 +12,8 @@ Build and start the development container:
 docker compose up -d --build
 ```
 
+The image copies the repository into `/workspace` at build time so it works even when Docker Desktop does not share the local checkout path. Rebuild after local source changes.
+
 The container runs the smoke test and starts Nginx automatically. Open:
 
 ```text

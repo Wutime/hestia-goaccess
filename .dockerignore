@@ -1,0 +1,6 @@
+.git
+docker/data
+docker/logs
+tmp
+coverage
+

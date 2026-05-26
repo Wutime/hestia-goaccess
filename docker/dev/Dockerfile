@@ -26,4 +26,7 @@ RUN curl -fsSL https://deb.goaccess.io/gnugpg.key \
 	&& apt-get install -y --no-install-recommends goaccess \
 	&& rm -rf /var/lib/apt/lists/*
 
+WORKDIR /workspace
+COPY . /workspace
+
 ENTRYPOINT ["/usr/bin/tini", "--"]
