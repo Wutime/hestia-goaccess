@@ -12,7 +12,7 @@ git@github.com:Wutime/hestia-goaccess.git
 Local workspace:
 
 ```text
-/opt/homebrew/var/www/hestia-goaccess
+/Users/davidwilson/dev/www/hestia-goaccess
 ```
 
 Current public release:
