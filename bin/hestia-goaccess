@@ -51,6 +51,7 @@ Commands:
   enable USER DOMAIN --mode static [--ignore-paths PATHS]
   enable USER DOMAIN --mode realtime [--ws-url URL] [--ignore-paths PATHS]
   disable USER DOMAIN
+  repair
   status [USER DOMAIN]
   terminal [USER] DOMAIN
   help
@@ -969,6 +970,13 @@ disable_domain() {
 	fi
 }
 
+repair_integration() {
+	local repair_script="/usr/local/share/hestia-goaccess/scripts/hestia-goaccess-repair-integration"
+
+	[[ -x "${repair_script}" ]] || die "repair script not found or not executable: ${repair_script}"
+	exec "${repair_script}"
+}
+
 current_hestia_user() {
 	local current
 
@@ -1085,6 +1093,11 @@ main() {
 			shift
 			[[ "$#" -eq 2 ]] || die "usage: hestia-goaccess disable USER DOMAIN"
 			disable_domain "$1" "$2"
+			;;
+		repair)
+			shift
+			[[ "$#" -eq 0 ]] || die "usage: hestia-goaccess repair"
+			repair_integration
 			;;
 		status)
 			shift

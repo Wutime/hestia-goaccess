@@ -1,0 +1,213 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SHARE_DIR="${HESTIA_GOACCESS_SHARE_DIR:-/usr/local/share/hestia-goaccess}"
+HESTIA_DIR="${HESTIA:-/usr/local/hestia}"
+QUIET="no"
+FORCE_RECONCILE="no"
+REPAIR_CHANGED="no"
+ADDON_STATS_TYPES=("goaccess-static" "goaccess-realtime")
+WRAPPED_COMMANDS=(
+	"v-update-web-domain-stat"
+	"v-delete-web-domain-stats"
+	"v-delete-web-domain"
+	"v-delete-user"
+)
+
+usage() {
+	cat <<'USAGE'
+hestia-goaccess-repair-integration
+
+Usage:
+  hestia-goaccess-repair-integration [--quiet] [--force-reconcile]
+
+Repairs hestia-goaccess' Hestia dropdown integration after Hestia package
+updates replace wrapped commands under /usr/local/hestia/bin.
+USAGE
+}
+
+die() {
+	printf 'hestia-goaccess-repair-integration: %s\n' "$*" >&2
+	exit 1
+}
+
+info() {
+	[[ "${QUIET}" == "yes" ]] && return 0
+	printf '%s\n' "$*"
+}
+
+backup_file() {
+	local file="$1"
+	local backup_dir="/etc/hestia-goaccess/backups"
+	local timestamp
+
+	[[ -f "${file}" ]] || die "cannot back up missing file: ${file}"
+	timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+	install -d -m 0755 "${backup_dir}"
+	cp -p "${file}" "${backup_dir}/$(basename "${file}").${timestamp}"
+	info "backup: ${backup_dir}/$(basename "${file}").${timestamp}"
+}
+
+stats_system_value() {
+	sed -n "s/^STATS_SYSTEM='\\(.*\\)'$/\\1/p" "${HESTIA_DIR}/conf/hestia.conf" |
+		head -n 1
+}
+
+stats_system_has_type() {
+	local stats="$1"
+	local type="$2"
+	local -a items
+	local item
+
+	IFS=',' read -r -a items <<< "${stats}"
+	for item in "${items[@]}"; do
+		[[ "${item}" == "${type}" ]] && return 0
+	done
+
+	return 1
+}
+
+register_stats_system_type() {
+	local type="$1"
+	local conf="${HESTIA_DIR}/conf/hestia.conf"
+	local current
+	local updated
+	local tmp
+
+	current="$(stats_system_value)"
+	[[ -n "${current}" ]] || die "unable to read STATS_SYSTEM from ${conf}"
+	if stats_system_has_type "${current}" "${type}"; then
+		info "ok: ${type} already registered in STATS_SYSTEM"
+		return
+	fi
+
+	updated="${current},${type}"
+	tmp="$(mktemp)"
+	backup_file "${conf}"
+	awk -v updated="${updated}" '
+		/^STATS_SYSTEM='\''/ {
+			print "STATS_SYSTEM='\''" updated "'\''"
+			next
+		}
+		{ print }
+	' "${conf}" > "${tmp}"
+	cat "${tmp}" > "${conf}"
+	rm -f "${tmp}"
+	info "registered: ${type} in STATS_SYSTEM"
+	REPAIR_CHANGED="yes"
+}
+
+install_stats_template() {
+	local type="$1"
+	local source="${SHARE_DIR}/templates/web/${type}/${type}.tpl"
+	local template_dir="${HESTIA_DIR}/data/templates/web/${type}"
+
+	[[ -f "${source}" ]] || die "template not found: ${source}"
+	install -d -m 0755 "${template_dir}"
+	install -m 0644 "${source}" "${template_dir}/${type}.tpl"
+	info "installed: ${template_dir}/${type}.tpl"
+}
+
+install_hestia_wrapper() {
+	local command="$1"
+	local target="${HESTIA_DIR}/bin/${command}"
+	local original="${HESTIA_DIR}/bin/${command}.hestia-goaccess-original"
+	local wrapper="${SHARE_DIR}/patches/hestia/${command}.wrapper"
+
+	[[ -f "${wrapper}" ]] || die "wrapper not found: ${wrapper}"
+	if grep -q 'hestia-goaccess managed wrapper' "${target}" 2>/dev/null; then
+		install -m 0755 "${wrapper}" "${target}"
+		info "updated: ${command} wrapper"
+		return
+	fi
+
+	[[ -x "${target}" ]] || die "Hestia command not found: ${target}"
+	if [[ ! -f "${original}" ]]; then
+		backup_file "${target}"
+		cp -p "${target}" "${original}"
+		info "preserved: ${original}"
+	else
+		backup_file "${target}"
+		backup_file "${original}"
+		cp -p "${target}" "${original}"
+		info "refreshed: ${original}"
+	fi
+
+	install -m 0755 "${wrapper}" "${target}"
+	info "installed: ${target} wrapper"
+	REPAIR_CHANGED="yes"
+}
+
+reconcile_addon_domains() {
+	local web_conf
+	local user
+	local line
+	local domain
+	local stats
+	local mode
+
+	[[ -x /usr/local/bin/hestia-goaccess ]] || return 0
+	while IFS= read -r web_conf; do
+		user="$(basename "$(dirname "${web_conf}")")"
+		while IFS= read -r line; do
+			domain="$(printf '%s\n' "${line}" | sed -n "s/.*DOMAIN='\\([^']*\\)'.*/\\1/p")"
+			stats="$(printf '%s\n' "${line}" | sed -n "s/.* STATS='\\([^']*\\)'.*/\\1/p")"
+			[[ -n "${domain}" ]] || continue
+			case "${stats}" in
+				goaccess-static) mode="static" ;;
+				goaccess-realtime) mode="realtime" ;;
+				*) continue ;;
+			esac
+			info "reconciling: ${user}/${domain} ${stats}"
+			if [[ "${QUIET}" == "yes" ]]; then
+				/usr/local/bin/hestia-goaccess enable "${user}" "${domain}" --mode "${mode}" >/dev/null 2>&1
+			else
+				/usr/local/bin/hestia-goaccess enable "${user}" "${domain}" --mode "${mode}"
+			fi
+		done < "${web_conf}"
+	done < <(find "${HESTIA_DIR}/data/users" -mindepth 2 -maxdepth 2 -type f -name web.conf 2>/dev/null | sort)
+}
+
+repair_integration() {
+	local type
+	local command
+
+	[[ "${EUID}" -eq 0 ]] || die "run as root"
+	[[ -x "${HESTIA_DIR}/bin/v-list-sys-config" ]] || die "Hestia CLI not found at ${HESTIA_DIR}/bin"
+
+	for type in "${ADDON_STATS_TYPES[@]}"; do
+		register_stats_system_type "${type}"
+		install_stats_template "${type}"
+	done
+
+	for command in "${WRAPPED_COMMANDS[@]}"; do
+		install_hestia_wrapper "${command}"
+	done
+
+	if [[ "${REPAIR_CHANGED}" == "yes" || "${FORCE_RECONCILE}" == "yes" ]]; then
+		reconcile_addon_domains
+	fi
+
+	info "ok: Hestia dropdown integration repaired"
+}
+
+while [[ "$#" -gt 0 ]]; do
+	case "$1" in
+		--quiet|-q)
+			QUIET="yes"
+			;;
+		--force-reconcile)
+			FORCE_RECONCILE="yes"
+			;;
+		-h|--help)
+			usage
+			exit 0
+			;;
+		*)
+			die "unknown option: $1"
+			;;
+	esac
+	shift
+done
+
+repair_integration

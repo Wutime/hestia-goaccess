@@ -294,6 +294,7 @@ if [[ "${REMOVE_DROPDOWN}" == "yes" ]]; then
 fi
 
 rm -f "${PREFIX}/bin/hestia-goaccess"
+rm -f /etc/apt/apt.conf.d/99hestia-goaccess-repair
 rm -rf "${PREFIX}/share/hestia-goaccess"
 
 if [[ "${REMOVE_STATE}" == "yes" ]]; then
@@ -304,4 +305,5 @@ else
 fi
 
 printf 'removed: %s/bin/hestia-goaccess\n' "${PREFIX}"
+printf 'removed: /etc/apt/apt.conf.d/99hestia-goaccess-repair\n'
 printf 'removed GoAccess databases and generated reports known to hestia-goaccess state\n'

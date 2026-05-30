@@ -222,7 +222,12 @@ install_files() {
 	install -d -m 0755 "${PREFIX}/bin"
 	install -d -m 0755 /etc/hestia-goaccess/domains
 	install -d -m 0755 /var/lib/hestia-goaccess
-	install -d -m 0755 "${share_dir}/conf" "${share_dir}/scripts"
+	install -d -m 0755 \
+		"${share_dir}/conf" \
+		"${share_dir}/patches/hestia" \
+		"${share_dir}/scripts" \
+		"${share_dir}/templates/web/goaccess-static" \
+		"${share_dir}/templates/web/goaccess-realtime"
 
 	install -m 0755 "${repo_root}/bin/hestia-goaccess" "${PREFIX}/bin/hestia-goaccess"
 	install -m 0755 "${repo_root}/uninstall.sh" "${share_dir}/uninstall.sh"
@@ -240,109 +245,28 @@ install_files() {
 		done < "${repo_root}/conf/defaults.conf"
 	fi
 	install -m 0644 "${repo_root}/conf/defaults.conf" "${share_dir}/conf/defaults.conf"
+	install -m 0644 "${repo_root}/conf/apt-post-invoke.conf" "${share_dir}/conf/apt-post-invoke.conf"
 	install -m 0755 "${repo_root}/scripts/check-goaccess-version.sh" "${share_dir}/scripts/check-goaccess-version.sh"
 	install -m 0755 "${repo_root}/scripts/hestia-goaccess-filter-log" "${share_dir}/scripts/hestia-goaccess-filter-log"
 	install -m 0755 "${repo_root}/scripts/hestia-goaccess-realtime-runner" "${share_dir}/scripts/hestia-goaccess-realtime-runner"
+	install -m 0755 "${repo_root}/scripts/hestia-goaccess-repair-integration" "${share_dir}/scripts/hestia-goaccess-repair-integration"
 	install -m 0755 "${repo_root}/scripts/install-goaccess-debian.sh" "${share_dir}/scripts/install-goaccess-debian.sh"
+	install -m 0755 "${repo_root}/patches/hestia/"*.wrapper "${share_dir}/patches/hestia/"
+	install -m 0644 "${repo_root}/templates/web/goaccess-static/goaccess-static.tpl" "${share_dir}/templates/web/goaccess-static/goaccess-static.tpl"
+	install -m 0644 "${repo_root}/templates/web/goaccess-realtime/goaccess-realtime.tpl" "${share_dir}/templates/web/goaccess-realtime/goaccess-realtime.tpl"
+	install -m 0644 "${repo_root}/conf/apt-post-invoke.conf" /etc/apt/apt.conf.d/99hestia-goaccess-repair
 
 	info "installed: ${PREFIX}/bin/hestia-goaccess"
 	info "configured: /etc/hestia-goaccess/defaults.conf"
-}
-
-stats_system_value() {
-	sed -n "s/^STATS_SYSTEM='\\(.*\\)'$/\\1/p" /usr/local/hestia/conf/hestia.conf |
-		head -n 1
-}
-
-stats_system_has_type() {
-	local stats="$1"
-	local type="$2"
-	local -a items
-	local item
-
-	IFS=',' read -r -a items <<< "${stats}"
-	for item in "${items[@]}"; do
-		[[ "${item}" == "${type}" ]] && return 0
-	done
-
-	return 1
-}
-
-register_stats_system_type() {
-	local type="$1"
-	local conf="/usr/local/hestia/conf/hestia.conf"
-	local current
-	local updated
-	local tmp
-
-	current="$(stats_system_value)"
-	[[ -n "${current}" ]] || die "unable to read STATS_SYSTEM from ${conf}"
-	if stats_system_has_type "${current}" "${type}"; then
-		info "ok: ${type} already registered in STATS_SYSTEM"
-		return
-	fi
-
-	updated="${current},${type}"
-	tmp="$(mktemp)"
-	backup_file "${conf}"
-	awk -v updated="${updated}" '
-		/^STATS_SYSTEM='\''/ {
-			print "STATS_SYSTEM='\''" updated "'\''"
-			next
-		}
-		{ print }
-	' "${conf}" > "${tmp}"
-	cat "${tmp}" > "${conf}"
-	rm -f "${tmp}"
-	info "registered: ${type} in STATS_SYSTEM"
-}
-
-install_stats_template() {
-	local type="$1"
-	local template_dir="/usr/local/hestia/data/templates/web/${type}"
-
-	install -d -m 0755 "${template_dir}"
-	install -m 0644 \
-		"${repo_root}/templates/web/${type}/${type}.tpl" \
-		"${template_dir}/${type}.tpl"
-	info "installed: ${template_dir}/${type}.tpl"
-}
-
-install_hestia_wrapper() {
-	local command="$1"
-	local target="/usr/local/hestia/bin/${command}"
-	local original="/usr/local/hestia/bin/${command}.hestia-goaccess-original"
-	local wrapper="${repo_root}/patches/hestia/${command}.wrapper"
-
-	if grep -q 'hestia-goaccess managed wrapper' "${target}" 2>/dev/null; then
-		install -m 0755 "${wrapper}" "${target}"
-		info "updated: ${command} wrapper"
-		return
-	fi
-
-	[[ -x "${target}" ]] || die "Hestia command not found: ${target}"
-	if [[ ! -f "${original}" ]]; then
-		backup_file "${target}"
-		cp -p "${target}" "${original}"
-		info "preserved: ${original}"
-	fi
-
-	install -m 0755 "${wrapper}" "${target}"
-	info "installed: ${target} wrapper"
+	info "installed: /etc/apt/apt.conf.d/99hestia-goaccess-repair"
 }
 
 install_hestia_dropdown_integration() {
-	local type
+	local repair_script="${PREFIX}/share/hestia-goaccess/scripts/hestia-goaccess-repair-integration"
 
 	info "installing Hestia dropdown integration"
-	for type in "${ADDON_STATS_TYPES[@]}"; do
-		register_stats_system_type "${type}"
-		install_stats_template "${type}"
-	done
-	install_hestia_wrapper "v-update-web-domain-stat"
-	install_hestia_wrapper "v-delete-web-domain-stats"
-	install_hestia_wrapper "v-delete-web-domain"
-	install_hestia_wrapper "v-delete-user"
+	[[ -x "${repair_script}" ]] || die "repair script not found: ${repair_script}"
+	"${repair_script}" --force-reconcile
 	info "ok: Hestia dropdown integration installed"
 }
 

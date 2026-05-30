@@ -99,6 +99,40 @@ To uninstall the add-on and remove dropdown integration:
 
 The uninstall command leaves the system `goaccess` package in place. It removes hestia-goaccess state, managed services, managed includes, persisted GoAccess databases, and generated reports known to hestia-goaccess when `--remove-state` is used.
 
+## Upgrade Existing Install
+
+For an existing install from the GitHub clone path, the quickest upgrade is:
+
+```bash
+cd /root/hestia-goaccess
+git fetch --tags
+git checkout v1.0.1
+./install.sh --yes
+```
+
+For an install tracking the repository branch instead of a release tag:
+
+```bash
+cd /root/hestia-goaccess
+git pull --ff-only
+./install.sh --yes
+```
+
+Rerunning the installer preserves `/etc/hestia-goaccess/defaults.conf`, installs any newly introduced support files, repairs Hestia dropdown integration, and reconciles existing `goaccess-static` and `goaccess-realtime` domains with the Hestia selector.
+
+If a Hestia package update already happened and realtime dashboards are behaving like static reports, upgrade to `v1.0.1` and run:
+
+```bash
+./install.sh --yes
+hestia-goaccess status
+```
+
+After `v1.0.1` is installed, future Debian/Ubuntu package updates run an automatic repair hook. Admins can also run the same repair manually at any time:
+
+```bash
+hestia-goaccess repair
+```
+
 ## Supported OS And GoAccess Install Policy
 
 HestiaCP `1.9.4` supports 64-bit Debian 11/12 and Ubuntu 22.04/24.04. `hestia-goaccess` mirrors that OS matrix for v1 and exits on other operating systems instead of guessing.
@@ -149,6 +183,7 @@ Installer behavior:
 - creates `/etc/hestia-goaccess`
 - preserves existing `/etc/hestia-goaccess/defaults.conf` values on reinstall and appends newly introduced defaults when needed
 - adds `goaccess-static` and `goaccess-realtime` to `STATS_SYSTEM`, installs Hestia stats templates, and wraps Hestia stats update/delete commands with backed-up fallbacks to Hestia's original commands
+- installs an APT post-invoke hook that repairs Hestia integration after package updates replace wrapped Hestia commands
 - leaves Hestia UI and core command files unchanged when `--without-hestia-dropdown` is used
 
 After install, the CLI can run a static GoAccess report for an existing Hestia domain:
@@ -158,6 +193,7 @@ hestia-goaccess doctor [USER DOMAIN]
 hestia-goaccess enable USER DOMAIN --mode static
 hestia-goaccess enable USER DOMAIN --mode realtime [--ws-url URL]
 hestia-goaccess disable USER DOMAIN
+hestia-goaccess repair
 hestia-goaccess status [USER DOMAIN]
 hestia-goaccess terminal [USER] DOMAIN
 ```
@@ -185,7 +221,6 @@ http://DOMAIN/vstats/
 Future commands under consideration:
 
 ```bash
-hestia-goaccess repair
 hestia-goaccess migrate-awstats --all --mode static
 ```
 
@@ -373,6 +408,14 @@ This integration:
 - runs `hestia-goaccess disable USER DOMAIN` before falling back to Hestia's original updater/delete command for non-GoAccess stats
 
 The visible dropdown values are `goaccess-static` and `goaccess-realtime` rather than labels with parentheses so v1 can avoid patching Hestia PHP UI label rendering.
+
+Hestia package upgrades can replace wrapped commands under `/usr/local/hestia/bin`. The installer adds an APT post-invoke hook at `/etc/apt/apt.conf.d/99hestia-goaccess-repair` so Debian/Ubuntu package updates automatically reapply the hestia-goaccess integration after package operations complete.
+
+```bash
+sudo hestia-goaccess repair
+```
+
+The repair command is idempotent. When a Hestia command has been replaced by an upgrade, it backs up both the current Hestia command and the previously preserved fallback, refreshes the fallback to the newly installed Hestia command, and reapplies the hestia-goaccess wrapper. If repair detects drift, it also reconciles domains already configured with `goaccess-static` or `goaccess-realtime` so their generated reports or realtime services match the Hestia selector again. The APT hook runs the same repair script quietly after package transactions, so normal Hestia updates should not require manual intervention.
 
 ## Docker Testing
 
