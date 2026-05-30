@@ -72,3 +72,5 @@ Preferred v1 behavior:
 - Realtime mode worked with per-domain systemd services, local Nginx WebSocket proxying, and `/vstats/`.
 - Switching `goaccess-static <> goaccess-realtime` preserved the per-domain database under `/var/lib/hestia-goaccess/USER/DOMAIN`.
 - `GOACCESS_DISABLE_STATS_ACCESS_LOG=yes` kept new `/vstats/` and `/vstats/ws/` requests out of the domain access log.
+- Hestia 1.9.6 package upgrade validation found that Hestia can replace wrapped commands under `/usr/local/hestia/bin` while leaving `STATS_SYSTEM` and per-domain `STATS` values intact. The add-on now installs an APT post-invoke repair hook and `hestia-goaccess repair` to refresh wrappers and reconcile GoAccess domains after package upgrades.
+- Static-to-realtime switching can appear stale if a browser or proxy reuses the old generated `/vstats/` HTML. The add-on now writes a managed no-cache stats include so normal refresh/revisit behavior loads the current report and WebSocket configuration.

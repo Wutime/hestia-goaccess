@@ -83,6 +83,8 @@ Current static behavior:
 
 Without dropdown integration, Hestia can serve `/vstats/`, but the Edit Web Domain stats dropdown will not show GoAccess options. With standard dropdown integration enabled, `goaccess-static` and `goaccess-realtime` are appended to `STATS_SYSTEM`, matching Hestia stats templates are installed, and Hestia's stats update/delete commands are wrapped so GoAccess values dispatch to the add-on while AWStats and future stats engines fall through to Hestia's original commands.
 
+Because Hestia package upgrades can replace wrapped commands under `/usr/local/hestia/bin`, the installer also installs repair assets under `/usr/local/share/hestia-goaccess` and an APT post-invoke hook at `/etc/apt/apt.conf.d/99hestia-goaccess-repair`. The repair path refreshes preserved fallback commands to the current Hestia version, reapplies the wrappers, and reconciles domains already configured as `goaccess-static` or `goaccess-realtime` when drift is detected.
+
 Current realtime behavior:
 
 - is available through CLI and Hestia dropdown after the standard install
@@ -95,6 +97,7 @@ Current realtime behavior:
 - uses a concrete Hestia/Nginx redirect target, such as `www.DOMAIN`, as the public WebSocket host when the domain redirects to that host
 - writes realtime HTML to `/home/USER/web/DOMAIN/stats/index.html`
 - disables `/vstats/` access logging through Hestia's stats include point by default so GoAccess can parse the selected log directly without counting its own dashboard
+- writes no-cache headers through Hestia's stats include point for managed GoAccess domains, so browsers and proxies do not keep stale static HTML after switching to realtime
 - preselects GoAccess' shipped `darkGray` HTML theme through `GOACCESS_HTML_PREFS='{"theme":"darkGray"}'`
 - uses bounded systemd stop behavior so re-enable and uninstall do not hang on stale realtime processes
 - records the selected port, service unit, and WebSocket URL in add-on state
@@ -116,7 +119,7 @@ hestia-goaccess DOMAIN
 
 `hestia-goaccess DOMAIN` resolves the Hestia user from the current shell login. Domain users with SSH access can use it directly only if the Hestia server grants them read access to their domain log. Treat that as layout-dependent, not guaranteed.
 
-GoAccess does not provide a general `--ignore-path` option. Static and realtime modes parse the selected Hestia log directly by default, and the add-on prevents `/vstats/` dashboard traffic from entering the log by writing `stats/auth.conf_hestia_goaccess_accesslog_off` with `access_log off;`. Administrators can set `GOACCESS_DISABLE_STATS_ACCESS_LOG=no` to skip that snippet. If an administrator configures ignored paths, the add-on uses `scripts/hestia-goaccess-filter-log` to pre-filter access logs. The CLI accepts comma or whitespace separated overrides through `--ignore-paths`; a future Hestia UI textarea can map directly to that setting.
+GoAccess does not provide a general `--ignore-path` option. Static and realtime modes parse the selected Hestia log directly by default, and the add-on prevents `/vstats/` dashboard traffic from entering the log by writing `stats/auth.conf_hestia_goaccess_accesslog_off` with `access_log off;`. Administrators can set `GOACCESS_DISABLE_STATS_ACCESS_LOG=no` to skip that snippet. The add-on separately writes `stats/auth.conf_hestia_goaccess_cache` with no-cache headers for managed `/vstats/` pages; this is independent from the access-log opt-out and should remain enabled for both static and realtime reports. If an administrator configures ignored paths, the add-on uses `scripts/hestia-goaccess-filter-log` to pre-filter access logs. The CLI accepts comma or whitespace separated overrides through `--ignore-paths`; a future Hestia UI textarea can map directly to that setting.
 
 ## Access Log Format
 
@@ -222,7 +225,7 @@ Preferred order:
 
 1. Use Hestia-supported per-domain include files under `/home/USER/conf/web/DOMAIN/`.
 2. Add a dedicated GoAccess stats template under Hestia's stats template directory if required by `v-add-web-domain-stats`.
-3. Patch or wrap Hestia command scripts only when unavoidable, with timestamped backups, checksum checks, repair, and uninstall support.
+3. Patch or wrap Hestia command scripts only when unavoidable, with timestamped backups, upgrade-aware fallback refresh, repair, package-update hook, and uninstall support.
 
 Adding dedicated stats values such as `goaccess-static` and `goaccess-realtime` likely requires matching stats templates and update dispatch behavior. Any Hestia PHP UI patch for prettier labels or extra per-domain option controls should be treated as optional and higher-risk than CLI/config-file support.
 
