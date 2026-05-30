@@ -139,6 +139,11 @@ cleanup_realtime_artifacts() {
 				rm -f "${include}"
 				printf 'removed: %s\n' "${include}"
 			fi
+			include="/home/${user}/web/${domain}/stats/auth.conf_hestia_goaccess_cache"
+			if [[ -f "${include}" ]]; then
+				rm -f "${include}"
+				printf 'removed: %s\n' "${include}"
+			fi
 			include="/home/${user}/conf/web/${domain}/nginx.conf_hestia_goaccess_realtime"
 			if [[ -f "${include}" ]]; then
 				rm -f "${include}"
@@ -176,7 +181,7 @@ cleanup_realtime_artifacts() {
 	while IFS= read -r include; do
 		rm -f "${include}"
 		printf 'removed: %s\n' "${include}"
-	done < <(find /home -path '*/web/*/stats/auth.conf_hestia_goaccess_accesslog_off' -type f 2>/dev/null | sort)
+	done < <(find /home \( -path '*/web/*/stats/auth.conf_hestia_goaccess_accesslog_off' -o -path '*/web/*/stats/auth.conf_hestia_goaccess_cache' \) -type f 2>/dev/null | sort)
 
 	if [[ "${changed_units}" == "yes" ]]; then
 		systemctl daemon-reload >/dev/null 2>&1 || true

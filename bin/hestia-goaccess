@@ -316,6 +316,42 @@ stats_accesslog_off_file() {
 	printf '/home/%s/web/%s/stats/auth.conf_hestia_goaccess_accesslog_off\n' "${user}" "${domain}"
 }
 
+stats_cache_headers_file() {
+	local user="$1"
+	local domain="$2"
+
+	printf '/home/%s/web/%s/stats/auth.conf_hestia_goaccess_cache\n' "${user}" "${domain}"
+}
+
+write_stats_cache_headers() {
+	local user="$1"
+	local domain="$2"
+	local stats_path
+	local file
+
+	stats_path="$(domain_stats_path "${user}" "${domain}")"
+	file="$(stats_cache_headers_file "${user}" "${domain}")"
+	install -d -m 0755 -o "${user}" -g "${user}" "${stats_path}"
+	cat > "${file}" <<'NGINX'
+# hestia-goaccess: keep generated stats dashboards fresh after mode changes.
+etag off;
+add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0" always;
+add_header Pragma "no-cache" always;
+add_header Expires "0" always;
+NGINX
+	chown "${user}:${user}" "${file}"
+	chmod 0644 "${file}"
+}
+
+remove_stats_cache_headers() {
+	local user="$1"
+	local domain="$2"
+	local file
+
+	file="$(stats_cache_headers_file "${user}" "${domain}")"
+	rm -f "${file}"
+}
+
 write_stats_accesslog_off() {
 	local user="$1"
 	local domain="$2"
@@ -355,6 +391,7 @@ sync_stats_accesslog_setting() {
 	local user="$1"
 	local domain="$2"
 
+	write_stats_cache_headers "${user}" "${domain}"
 	if config_enabled "${GOACCESS_DISABLE_STATS_ACCESS_LOG}"; then
 		write_stats_accesslog_off "${user}" "${domain}"
 	else
@@ -814,6 +851,7 @@ cleanup_domain_artifacts() {
 
 	stop_realtime_if_present "${user}" "${domain}"
 	remove_stats_accesslog_off "${user}" "${domain}"
+	remove_stats_cache_headers "${user}" "${domain}"
 	rm -rf "${db_path}" "${GOACCESS_RUN_DIR:?}/${user:?}/${domain:?}"
 	rm -f "${report_path}" "${file}"
 	rmdir "${GOACCESS_DB_ROOT}/${user}" 2>/dev/null || true
