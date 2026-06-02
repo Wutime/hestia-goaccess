@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.3 - 2026-06-02
+
+Maintenance release for realtime WebSocket startup on direct-log domains.
+
+- Fixes realtime direct-log mode so GoAccess receives the selected Hestia access log as its input file instead of also receiving a stdin marker, which could leave the service running without a usable WebSocket listener on some servers.
+
 ## v1.0.2 - 2026-05-30
 
 Maintenance release for realtime dashboard freshness after mode changes.

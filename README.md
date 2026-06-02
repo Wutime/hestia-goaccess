@@ -106,7 +106,7 @@ For an existing install from the GitHub clone path, the quickest upgrade is:
 ```bash
 cd /root/hestia-goaccess
 git fetch --tags
-git checkout v1.0.2
+git checkout v1.0.3
 ./install.sh --yes
 ```
 
@@ -118,16 +118,16 @@ git pull --ff-only
 ./install.sh --yes
 ```
 
-Rerunning the installer preserves `/etc/hestia-goaccess/defaults.conf`, installs any newly introduced support files, repairs Hestia dropdown integration, reconciles existing `goaccess-static` and `goaccess-realtime` domains with the Hestia selector, and writes no-cache headers for managed `/vstats/` pages so browsers do not keep stale reports after mode changes.
+Rerunning the installer preserves `/etc/hestia-goaccess/defaults.conf`, installs any newly introduced support files, repairs Hestia dropdown integration, reconciles existing `goaccess-static` and `goaccess-realtime` domains with the Hestia selector, writes no-cache headers for managed `/vstats/` pages so browsers do not keep stale reports after mode changes, and installs the current realtime runner.
 
-If a Hestia package update already happened and realtime dashboards are behaving like static reports, upgrade to `v1.0.2` and run:
+If a Hestia package update already happened and realtime dashboards are behaving like static reports, upgrade to the current release and run:
 
 ```bash
 ./install.sh --yes
 hestia-goaccess status
 ```
 
-After `v1.0.2` is installed, future Debian/Ubuntu package updates run an automatic repair hook. Admins can also run the same repair manually at any time:
+After `v1.0.2` or newer is installed, future Debian/Ubuntu package updates run an automatic repair hook. Admins can also run the same repair manually at any time:
 
 ```bash
 hestia-goaccess repair

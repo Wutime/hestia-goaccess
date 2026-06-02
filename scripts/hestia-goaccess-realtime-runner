@@ -30,7 +30,7 @@ if [[ -n "$(find "${db_path}" -mindepth 1 -maxdepth 1 -type f -print -quit 2>/de
 fi
 
 if ignore_paths_empty; then
-	goaccess - \
+	goaccess "${log_path}" \
 		--log-format="${HESTIA_GOACCESS_LOG_FORMAT:-COMBINED}" \
 		"${persist_args[@]}" \
 		--real-time-html \
@@ -43,8 +43,7 @@ if ignore_paths_empty; then
 		--ignore-crawlers \
 		"${html_pref_args[@]}" \
 		--html-report-title="${domain} GoAccess Realtime" \
-		--no-progress \
-		"${log_path}"
+		--no-progress
 else
 	exec "${filter_log}" --follow "${log_path}" |
 		goaccess - \
