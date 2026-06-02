@@ -83,7 +83,7 @@ Current static behavior:
 
 Without dropdown integration, Hestia can serve `/vstats/`, but the Edit Web Domain stats dropdown will not show GoAccess options. With standard dropdown integration enabled, `goaccess-static` and `goaccess-realtime` are appended to `STATS_SYSTEM`, matching Hestia stats templates are installed, and Hestia's stats update/delete commands are wrapped so GoAccess values dispatch to the add-on while AWStats and future stats engines fall through to Hestia's original commands.
 
-Because Hestia package upgrades can replace wrapped commands under `/usr/local/hestia/bin`, the installer also installs repair assets under `/usr/local/share/hestia-goaccess` and an APT post-invoke hook at `/etc/apt/apt.conf.d/99hestia-goaccess-repair`. The repair path refreshes preserved fallback commands to the current Hestia version, reapplies the wrappers, and reconciles domains already configured as `goaccess-static` or `goaccess-realtime` when drift is detected.
+Because Hestia package upgrades can replace wrapped commands under `/usr/local/hestia/bin`, the installer also installs repair assets under `/usr/local/share/hestia-goaccess` and an APT post-invoke hook at `/etc/apt/apt.conf.d/99hestia-goaccess-repair`. The repair path refreshes preserved fallback commands to the current Hestia version, reapplies the wrappers, and reconciles domains already configured as `goaccess-static` or `goaccess-realtime` when drift is detected. Domain reconciliation must not pass Hestia `web.conf` as stdin to child report-generation commands, and one failed domain regeneration should warn without aborting the integration repair.
 
 Current realtime behavior:
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.4 - 2026-06-02
+
+Maintenance release for repair/install reconciliation robustness.
+
+- Prevents Hestia `web.conf` lines from leaking into repair-time domain reconciliation by detaching each reconciliation command from the `web.conf` read stream.
+- Lets repair/install reconciliation warn and continue when one existing GoAccess domain cannot be regenerated automatically, instead of aborting the full integration repair.
+
 ## v1.0.3 - 2026-06-02
 
 Maintenance release for realtime WebSocket startup on direct-log domains.

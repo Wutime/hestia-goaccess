@@ -106,7 +106,7 @@ For an existing install from the GitHub clone path, the quickest upgrade is:
 ```bash
 cd /root/hestia-goaccess
 git fetch --tags
-git checkout v1.0.3
+git checkout v1.0.4
 ./install.sh --yes
 ```
 
@@ -415,7 +415,7 @@ Hestia package upgrades can replace wrapped commands under `/usr/local/hestia/bi
 sudo hestia-goaccess repair
 ```
 
-The repair command is idempotent. When a Hestia command has been replaced by an upgrade, it backs up both the current Hestia command and the previously preserved fallback, refreshes the fallback to the newly installed Hestia command, and reapplies the hestia-goaccess wrapper. If repair detects drift, it also reconciles domains already configured with `goaccess-static` or `goaccess-realtime` so their generated reports or realtime services match the Hestia selector again. The APT hook runs the same repair script quietly after package transactions, so normal Hestia updates should not require manual intervention.
+The repair command is idempotent. When a Hestia command has been replaced by an upgrade, it backs up both the current Hestia command and the previously preserved fallback, refreshes the fallback to the newly installed Hestia command, and reapplies the hestia-goaccess wrapper. If repair detects drift, it also reconciles domains already configured with `goaccess-static` or `goaccess-realtime` so their generated reports or realtime services match the Hestia selector again. Reconciliation detaches each domain command from Hestia's `web.conf` read stream and warns if one domain cannot be regenerated automatically, while still completing the integration repair. The APT hook runs the same repair script quietly after package transactions, so normal Hestia updates should not require manual intervention.
 
 ## Docker Testing
 

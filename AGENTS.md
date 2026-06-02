@@ -18,10 +18,10 @@ Local workspace:
 Current public release:
 
 ```text
-v1.0.3
+v1.0.4
 ```
 
-The `v1.0.3` tag has been pushed to GitHub. The release is intended to be a normal release, not a pre-release. No binary assets are required; GitHub's source zip/tarball plus the documented `git clone` install path are sufficient for v1.
+The `v1.0.4` tag has been pushed to GitHub. The release is intended to be a normal release, not a pre-release. No binary assets are required; GitHub's source zip/tarball plus the documented `git clone` install path are sufficient for v1.
 
 Documentation maintenance rule:
 - keep `AGENTS.md`, `README.md`, `CHANGELOG.md`, and relevant `docs/*.md` files synchronized with committed behavior changes
@@ -341,6 +341,7 @@ Dropdown integration behavior:
 - falls through all other stats types to Hestia's original updater
 - calls `hestia-goaccess disable USER DOMAIN` before falling through or deleting stats so realtime services and Nginx includes are removed
 - `hestia-goaccess repair` reapplies stats templates and wrappers; if repair detects drift, it reconciles all domains whose Hestia `STATS` is `goaccess-static` or `goaccess-realtime`
+- repair/install reconciliation detaches each per-domain enable command from Hestia's `web.conf` read stream and warns if one GoAccess domain cannot be regenerated automatically, while still completing integration repair
 - does not patch Hestia PHP UI labels; the dropdown values are `goaccess-static` and `goaccess-realtime`
 
 Current realtime behavior:
@@ -385,6 +386,7 @@ Supplemental production validation profile:
 - Hestia `1.9.6` package upgrades replace wrapped Hestia commands under `/usr/local/hestia/bin`; `v1.0.1+` repairs this through the APT post-invoke hook and `hestia-goaccess repair`
 - browsers and proxies may keep stale `/vstats/` HTML after mode switches unless explicit no-cache headers are present; `v1.0.2+` writes the managed cache include to fix normal refresh behavior
 - `v1.0.3+` fixes realtime direct-log startup so GoAccess receives the selected Hestia access log directly instead of also receiving a stdin marker that could leave the service running without a usable WebSocket listener on some servers
+- `v1.0.4+` prevents repair/install reconciliation from leaking Hestia `web.conf` lines into child report-generation commands and warns instead of aborting if one existing GoAccess domain cannot regenerate automatically
 
 ## Public Project Expectations
 The GitHub project should be structured for long-term public use and contribution.
@@ -458,13 +460,14 @@ Log format policy:
 - allow admins with custom Hestia log templates to override `GOACCESS_LOG_FORMAT` in `/etc/hestia-goaccess/defaults.conf`
 
 ## Release State
-`v1.0.3` is the current public release. The original research, static prototype, realtime prototype, Hestia dropdown integration, persistence, live validation, changelog, tag, and GitHub release preparation are complete.
+`v1.0.4` is the current public release. The original research, static prototype, realtime prototype, Hestia dropdown integration, persistence, live validation, changelog, tag, and GitHub release preparation are complete.
 
 Release history:
 - `v1.0.0`: initial public release
 - `v1.0.1`: Hestia package-upgrade repair hook, refreshed fallback wrappers, and domain reconciliation after repair
 - `v1.0.2`: no-cache headers for managed `/vstats/` pages to avoid stale dashboard HTML after static/realtime mode changes
 - `v1.0.3`: realtime direct-log runner fix for WebSocket listener startup on affected servers
+- `v1.0.4`: repair/install reconciliation stdin isolation and per-domain failure warnings
 
 Known future work:
 - add an explicit AWStats migration command, likely static-first

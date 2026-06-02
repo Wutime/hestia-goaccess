@@ -6,6 +6,7 @@ HESTIA_DIR="${HESTIA:-/usr/local/hestia}"
 QUIET="no"
 FORCE_RECONCILE="no"
 REPAIR_CHANGED="no"
+RECONCILE_FAILED="no"
 ADDON_STATS_TYPES=("goaccess-static" "goaccess-realtime")
 WRAPPED_COMMANDS=(
 	"v-update-web-domain-stat"
@@ -145,6 +146,7 @@ reconcile_addon_domains() {
 	local domain
 	local stats
 	local mode
+	local command_status
 
 	[[ -x /usr/local/bin/hestia-goaccess ]] || return 0
 	while IFS= read -r web_conf; do
@@ -160,9 +162,21 @@ reconcile_addon_domains() {
 			esac
 			info "reconciling: ${user}/${domain} ${stats}"
 			if [[ "${QUIET}" == "yes" ]]; then
-				/usr/local/bin/hestia-goaccess enable "${user}" "${domain}" --mode "${mode}" >/dev/null 2>&1
+				if /usr/local/bin/hestia-goaccess enable "${user}" "${domain}" --mode "${mode}" </dev/null >/dev/null 2>&1; then
+					command_status="0"
+				else
+					command_status="$?"
+				fi
 			else
-				/usr/local/bin/hestia-goaccess enable "${user}" "${domain}" --mode "${mode}"
+				if /usr/local/bin/hestia-goaccess enable "${user}" "${domain}" --mode "${mode}" </dev/null; then
+					command_status="0"
+				else
+					command_status="$?"
+				fi
+			fi
+			if [[ "${command_status}" -ne 0 ]]; then
+				RECONCILE_FAILED="yes"
+				info "warn: failed to reconcile ${user}/${domain}; run 'hestia-goaccess enable ${user} ${domain} --mode ${mode}' after checking the domain log"
 			fi
 		done < "${web_conf}"
 	done < <(find "${HESTIA_DIR}/data/users" -mindepth 2 -maxdepth 2 -type f -name web.conf 2>/dev/null | sort)
@@ -188,6 +202,9 @@ repair_integration() {
 		reconcile_addon_domains
 	fi
 
+	if [[ "${RECONCILE_FAILED}" == "yes" ]]; then
+		info "warn: Hestia integration was repaired, but one or more GoAccess domains could not be regenerated automatically"
+	fi
 	info "ok: Hestia dropdown integration repaired"
 }
 
