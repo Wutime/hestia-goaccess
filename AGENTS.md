@@ -18,10 +18,10 @@ Local workspace:
 Current public release:
 
 ```text
-v1.0.4
+v1.0.5
 ```
 
-The `v1.0.4` tag has been pushed to GitHub. The release is intended to be a normal release, not a pre-release. No binary assets are required; GitHub's source zip/tarball plus the documented `git clone` install path are sufficient for v1.
+The `v1.0.5` tag has been pushed to GitHub. The release is intended to be a normal release, not a pre-release. No binary assets are required; GitHub's source zip/tarball plus the documented `git clone` install path are sufficient for v1.
 
 Documentation maintenance rule:
 - keep `AGENTS.md`, `README.md`, `CHANGELOG.md`, and relevant `docs/*.md` files synchronized with committed behavior changes
@@ -303,6 +303,7 @@ Then open `https://panel.hestia-goaccess.localhost:8083/` with dev credentials `
 Current CLI behavior:
 - `./install.sh [--yes] [--without-goaccess] [--upgrade-goaccess]`
 - `./install.sh`
+- `hestia-goaccess --version`
 - `hestia-goaccess doctor [USER DOMAIN]`
 - `hestia-goaccess enable USER DOMAIN --mode static`
 - `hestia-goaccess enable USER DOMAIN --mode realtime [--ws-url URL]`
@@ -460,7 +461,7 @@ Log format policy:
 - allow admins with custom Hestia log templates to override `GOACCESS_LOG_FORMAT` in `/etc/hestia-goaccess/defaults.conf`
 
 ## Release State
-`v1.0.4` is the current public release. The original research, static prototype, realtime prototype, Hestia dropdown integration, persistence, live validation, changelog, tag, and GitHub release preparation are complete.
+`v1.0.5` is the current public release. The original research, static prototype, realtime prototype, Hestia dropdown integration, persistence, live validation, changelog, tag, and GitHub release preparation are complete.
 
 Release history:
 - `v1.0.0`: initial public release
@@ -468,6 +469,7 @@ Release history:
 - `v1.0.2`: no-cache headers for managed `/vstats/` pages to avoid stale dashboard HTML after static/realtime mode changes
 - `v1.0.3`: realtime direct-log runner fix for WebSocket listener startup on affected servers
 - `v1.0.4`: repair/install reconciliation stdin isolation and per-domain failure warnings
+- `v1.0.5`: CLI version reporting and realtime doctor diagnostics
 
 Known future work:
 - add an explicit AWStats migration command, likely static-first

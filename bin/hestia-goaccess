@@ -3,6 +3,14 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
+HESTIA_GOACCESS_VERSION="v1.0.5"
+
+case "${1:-}" in
+	--version|-V|version)
+		printf 'hestia-goaccess %s\n' "${HESTIA_GOACCESS_VERSION}"
+		exit 0
+		;;
+esac
 
 if [[ -f "${repo_root}/conf/defaults.conf" ]]; then
 	# shellcheck disable=SC1091
@@ -47,6 +55,7 @@ usage() {
 hestia-goaccess
 
 Commands:
+  version
   doctor [USER DOMAIN]
   enable USER DOMAIN --mode static [--ignore-paths PATHS]
   enable USER DOMAIN --mode realtime [--ws-url URL] [--ignore-paths PATHS]
@@ -500,6 +509,60 @@ check_realtime_log_access() {
 		die "realtime service would not be able to read ${log_path} as ${user} with supplementary group adm"
 }
 
+check_realtime_runtime() {
+	local user="$1"
+	local domain="$2"
+	local file
+	local port
+	local unit
+	local ws_url
+	local report_path
+	local include_file
+
+	file="$(state_file "${user}" "${domain}")"
+	[[ -f "${file}" ]] || die "realtime state file is missing: ${file}; re-enable realtime for this domain"
+
+	port="$(state_value "${file}" "HG_PORT" || true)"
+	unit="$(state_value "${file}" "HG_UNIT" || true)"
+	ws_url="$(state_value "${file}" "HG_WS_URL" || true)"
+	report_path="$(state_value "${file}" "HG_REPORT_PATH" || true)"
+	include_file="$(expected_nginx_include_file "${user}" "${domain}")"
+
+	[[ -n "${port}" ]] || die "realtime state does not include HG_PORT; re-enable realtime for this domain"
+	[[ -n "${unit}" ]] || die "realtime state does not include HG_UNIT; re-enable realtime for this domain"
+	[[ -n "${ws_url}" ]] || die "realtime state does not include HG_WS_URL; re-enable realtime for this domain"
+	[[ -n "${report_path}" ]] || report_path="$(domain_stats_path "${user}" "${domain}")/index.html"
+
+	command -v systemctl >/dev/null 2>&1 || die "systemctl is required to check realtime service state"
+	command -v ss >/dev/null 2>&1 || die "ss is required to check realtime listener state"
+	command -v nginx >/dev/null 2>&1 || die "nginx is required to check realtime WebSocket proxy state"
+
+	if ! systemctl is-active --quiet "${unit}"; then
+		die "realtime service is not active: ${unit}; check: systemctl status --no-pager ${unit}"
+	fi
+	info "ok: realtime service is active: ${unit}"
+
+	if ! port_is_listening "${port}"; then
+		die "realtime service port is not listening: ${port}; check: journalctl -u ${unit} -n 80 --no-pager"
+	fi
+	info "ok: realtime listener is active on ${GOACCESS_REALTIME_BIND}:${port}"
+
+	[[ -f "${include_file}" ]] || die "Nginx realtime include is missing: ${include_file}; re-enable realtime for this domain"
+	info "ok: Nginx realtime include exists: ${include_file}"
+	validate_nginx_realtime_include_loaded "${user}" "${domain}"
+	info "ok: Nginx realtime include is loaded"
+
+	[[ -f "${report_path}" ]] || die "realtime report does not exist yet: ${report_path}; check: journalctl -u ${unit} -n 80 --no-pager"
+	info "ok: realtime report exists: ${report_path}"
+
+	if grep -F "${ws_url}" "${report_path}" >/dev/null 2>&1; then
+		info "ok: realtime report contains configured WebSocket URL: ${ws_url}"
+	else
+		info "warn: realtime report does not contain configured WebSocket URL: ${ws_url}"
+		info "warn: hard-refresh /vstats/ and re-enable realtime if the browser is using stale dashboard HTML"
+	fi
+}
+
 doctor() {
 	local user="${1:-}"
 	local domain="${2:-}"
@@ -543,6 +606,7 @@ doctor() {
 		if [[ "${stats}" == "goaccess-realtime" ]]; then
 			check_realtime_log_access "${user}" "${log_path}"
 			info "ok: realtime service log access verified for ${user} with supplementary group adm"
+			check_realtime_runtime "${user}" "${domain}"
 		fi
 	fi
 }

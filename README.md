@@ -106,7 +106,7 @@ For an existing install from the GitHub clone path, the quickest upgrade is:
 ```bash
 cd /root/hestia-goaccess
 git fetch --tags
-git checkout v1.0.4
+git checkout v1.0.5
 ./install.sh --yes
 ```
 
@@ -189,6 +189,7 @@ Installer behavior:
 After install, the CLI can run a static GoAccess report for an existing Hestia domain:
 
 ```bash
+hestia-goaccess --version
 hestia-goaccess doctor [USER DOMAIN]
 hestia-goaccess enable USER DOMAIN --mode static
 hestia-goaccess enable USER DOMAIN --mode realtime [--ws-url URL]
@@ -197,6 +198,8 @@ hestia-goaccess repair
 hestia-goaccess status [USER DOMAIN]
 hestia-goaccess terminal [USER] DOMAIN
 ```
+
+For realtime domains, `hestia-goaccess doctor USER DOMAIN` also checks the managed systemd service, local realtime listener, Nginx WebSocket include, and generated report URL hints. This is the first diagnostic command to run when `/vstats/` loads but the browser reports a WebSocket error.
 
 Static mode writes:
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.5 - 2026-06-03
+
+- Adds `hestia-goaccess --version` / `hestia-goaccess version`, reporting `v1.0.5`, so administrators can verify the installed add-on copy directly.
+- Extends `hestia-goaccess doctor USER DOMAIN` for realtime domains to check the managed systemd unit, localhost listener port, Nginx WebSocket include, and generated report WebSocket URL hints.
+
 ## v1.0.4 - 2026-06-02
 
 Maintenance release for repair/install reconciliation robustness.
